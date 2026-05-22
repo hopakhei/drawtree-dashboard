@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+body { font-feature-settings: "ss01", "cv11"; }
+
+/* Verdict pills */
+.verdict-validated { color: #0a3a1f; background: #d4ecd9; }
+.verdict-trending-positive { color: #0d4f33; background: #e2f1e7; }
+.verdict-inconclusive { color: #585858; background: #ededed; }
+.verdict-trending-negative { color: #6b3a0a; background: #f4e3cf; }
+.verdict-approaching { color: #6b1f0a; background: #f4d4c9; }
+.verdict-falsified { color: #5e1010; background: #f1c5c5; }
+.verdict-pending { color: #404040; background: #e9e9e6; }
