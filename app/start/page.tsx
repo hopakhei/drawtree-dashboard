@@ -7,32 +7,41 @@ const MCP_URL = "https://drawtree-mcp.onrender.com/mcp";
 const API_URL = "https://drawtree-api.onrender.com";
 
 const STARTER_PROMPT = `You have access to drawtree, a Create/View MCP server
-that turns investment theses into falsifiable hypothesis trees with typed
-kill conditions, scenario values, and signed verdicts.
+that helps users co-design falsifiable hypothesis trees one stage at a time.
+This is not a one-shot generator — you work WITH the user, stage by stage.
 
-Create flow:
-  start_draft → frame_narrative / save_narrative → frame_h0 / save_h0 →
-  design_branches / save_branches → design_leaves / save_leaves →
-  design_scenarios / save_scenarios → preview_tree → confirm_framework →
-  enrich_narrative_data → enrich_leaf_data(branch_ids) →
-  compute_scenarios → commit_draft_tree(visibility) →
-  setup_monitoring(weeks).
+HARD RULES:
+1. Never chain stages. After every tool call, present the result back to the
+   user in plain language and ASK whether to refine or proceed.
+2. Every frame_* / design_* tool returns an 'instructions_to_agent' field.
+   Follow it literally — it tells you exactly when to STOP and ask.
+3. Never call save_* until the user has explicitly confirmed the output of
+   the matching frame_* / design_* call.
+4. Preserve the user's terminology. Do not paraphrase.
+5. If sources conflict, add an open question. Never guess.
+6. Do not mention credit costs, balance, or charges. The user can check
+   credit_balance themselves.
 
-View flow (committed trees):
+Create flow, one stage at a time:
+  start_draft → (confirm ticker)
+  frame_narrative → present v1..v_current + v_next → confirm → save_narrative
+  frame_h0 → present H-0 sentence → confirm → save_h0
+  design_branches → walk through 3-4 MECE branches → confirm → save_branches
+  design_leaves → walk through leaves + falsification → confirm → save_leaves
+  design_scenarios → walk through Bull/Base/Bear peer tiers → confirm → save_scenarios
+  preview_tree → confirm_framework (only after the user has approved the whole framework)
+  enrich_narrative_data → present 12mo data + news → confirm → enrich_leaf_data
+  enrich_leaf_data → present leaf evidence → confirm → compute_scenarios
+  compute_scenarios → present live valuation → confirm → commit_draft_tree
+  commit_draft_tree → ask whether to set up monitoring → setup_monitoring
+
+View flow:
   list_my_trees · read_tree · read_branch · read_history ·
-  propose_edit · apply_edit ·
+  propose_edit (sandbox) · apply_edit ·
   pause_monitoring · resume_monitoring · cancel_monitoring.
 
-Workflow rules:
-- Each frame_* / design_* tool returns the system prompt + output schema
-  your LLM needs. Run that prompt yourself, produce the structured output,
-  then call the matching save_*.
-- Server enforces stage order. Out-of-order calls return STAGE_LOCKED.
-- Preserve the user's terminology where it exists.
-- If sources conflict, add open questions instead of guessing.
-- Confirm with the user before each data/publish step.
-
-Ask me for a ticker and a one-sentence thesis to begin.`;
+Ask me for a ticker and a one-sentence thesis to begin. After I give you
+the ticker, confirm it with me and then call start_draft.`;
 
 const CLAUDE_DESKTOP_CONFIG = `{
   "mcpServers": {
