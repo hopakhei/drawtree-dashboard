@@ -6,18 +6,27 @@ import Link from "next/link";
 const MCP_URL = "https://drawtree-mcp.onrender.com/mcp";
 const API_URL = "https://drawtree-api.onrender.com";
 
-const STARTER_PROMPT = `You have access to the drawtree MCP server. It exposes 13 tools to turn any
-investment thesis into a falsifiable tree with typed kill conditions, scenario
-values, and signed verdicts. Free tools: validate_tree, aggregate_tree,
-commit_tree, read_tree, suggest_framework, balance. Paid tools (priced in HKD,
-held first then auto-confirmed in 24h): register_narrative, enrich_branches,
-suggest_falsification, derive_scenario_values, subscribe_alerts.
+const STARTER_PROMPT = `You have access to drawtree, a Create/View MCP server
+that turns investment theses into falsifiable hypothesis trees with typed
+kill conditions, scenario values, and signed verdicts.
 
-Help me build a tree. Ask me for the ticker and a one-sentence thesis. Then
-follow the drawtree-starter skill workflow: frame H-0 → suggest_framework →
-enrich_branches → write leaves → suggest_falsification → validate_tree →
-aggregate_tree → commit_tree. Preserve my terminology. If sources conflict,
-create an open_questions entry instead of guessing.`;
+Framework design is always FREE. You only spend credits after the user calls
+confirm_framework. New agents get 30 free credits.
+
+Create flow (free until confirm):
+  start_draft → frame_narrative / save_narrative → frame_h0 / save_h0 →
+  design_branches / save_branches → design_leaves / save_leaves →
+  design_scenarios / save_scenarios → preview_tree → confirm_framework.
+
+After confirm (paid):
+  enrich_narrative_data (8 cr) → enrich_leaf_data (5 cr/branch) →
+  compute_scenarios (15 cr) → commit_draft_tree (10 cr) →
+  setup_monitoring (5 cr/week).
+
+Ask me for a ticker and a one-sentence thesis. Each frame_*/design_* tool
+returns the system prompt + schema your LLM needs. Then call the matching
+save_*. Preserve my terminology. If sources conflict, add open questions
+instead of guessing.`;
 
 const CLAUDE_DESKTOP_CONFIG = `{
   "mcpServers": {
@@ -188,36 +197,69 @@ export default function Start() {
         </div>
       </section>
 
-      {/* Tools recap */}
+      {/* Pricing */}
       <section className="mb-8 border border-line rounded p-6 text-sm">
-        <h2 className="text-lg mb-3">13 tools</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-muted">
+        <h2 className="text-lg mb-3">Credits, not dollars</h2>
+        <p className="text-muted text-xs mb-4">
+          Framework design is always free; new agents get <strong>30 credits</strong>.
+          You only spend credits after you confirm the framework. Charges hold
+          first and auto-confirm in 24h.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
           <div>
-            <div className="text-ink text-xs uppercase tracking-wider mb-1">
-              Free
+            <div className="text-ink text-xs uppercase tracking-wider mb-2">
+              Create · free design
             </div>
-            <ul className="space-y-0.5">
-              <li><code>validate_tree</code></li>
-              <li><code>aggregate_tree</code></li>
-              <li><code>commit_tree</code></li>
-              <li><code>read_tree</code></li>
-              <li><code>suggest_framework</code></li>
-              <li><code>balance</code></li>
+            <ul className="space-y-0.5 text-muted">
+              <li><code>start_draft</code></li>
+              <li><code>frame_narrative</code> / <code>save_narrative</code></li>
+              <li><code>frame_h0</code> / <code>save_h0</code></li>
+              <li><code>design_branches</code> / <code>save_branches</code></li>
+              <li><code>design_leaves</code> / <code>save_leaves</code></li>
+              <li><code>design_scenarios</code> / <code>save_scenarios</code></li>
+              <li><code>preview_tree</code></li>
+              <li><code>confirm_framework</code> (boundary)</li>
             </ul>
           </div>
           <div>
-            <div className="text-ink text-xs uppercase tracking-wider mb-1">
-              Paid (HKD, 24h hold)
+            <div className="text-ink text-xs uppercase tracking-wider mb-2">
+              Create · paid data + publish
             </div>
-            <ul className="space-y-0.5">
-              <li><code>register_narrative</code> · $2</li>
-              <li><code>enrich_branches</code> · $3/branch</li>
-              <li><code>suggest_falsification</code> · $2</li>
-              <li><code>derive_scenario_values</code> · $10</li>
-              <li><code>subscribe_alerts</code> · per-alert</li>
+            <ul className="space-y-0.5 text-muted">
+              <li><code>enrich_narrative_data</code> · 8 cr</li>
+              <li><code>enrich_leaf_data</code> · 5 cr / branch</li>
+              <li><code>compute_scenarios</code> · 15 cr</li>
+              <li><code>commit_draft_tree</code> · 10 cr</li>
+              <li><code>setup_monitoring</code> · 5 cr / week</li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-ink text-xs uppercase tracking-wider mb-2">
+              View · all free except apply
+            </div>
+            <ul className="space-y-0.5 text-muted">
+              <li><code>list_my_trees</code> · <code>read_tree</code></li>
+              <li><code>read_branch</code> · <code>read_history</code></li>
+              <li><code>propose_edit</code> · sandbox</li>
+              <li><code>apply_edit</code> · 2 cr / leaf</li>
+              <li><code>pause_monitoring</code> · <code>resume_monitoring</code></li>
+              <li><code>cancel_monitoring</code> · prorate refund</li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-ink text-xs uppercase tracking-wider mb-2">
+              Always free
+            </div>
+            <ul className="space-y-0.5 text-muted">
+              <li><code>credit_balance</code></li>
+              <li><code>abandon_draft</code></li>
               <li><code>confirm_charge</code> / <code>refund_charge</code></li>
             </ul>
           </div>
+        </div>
+        <div className="mt-5 pt-4 border-t border-line text-xs text-muted">
+          <strong>Typical first tree:</strong> ~58 credits (narrative 8 + leaves 5×4 + scenarios 15 + publish 10 + 5 credits for first week of monitoring).
+          New agents land with 30 free credits.
         </div>
       </section>
 
