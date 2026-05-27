@@ -10,23 +10,29 @@ const STARTER_PROMPT = `You have access to drawtree, a Create/View MCP server
 that turns investment theses into falsifiable hypothesis trees with typed
 kill conditions, scenario values, and signed verdicts.
 
-Framework design is always FREE. You only spend credits after the user calls
-confirm_framework. New agents get 30 free credits.
-
-Create flow (free until confirm):
+Create flow:
   start_draft → frame_narrative / save_narrative → frame_h0 / save_h0 →
   design_branches / save_branches → design_leaves / save_leaves →
-  design_scenarios / save_scenarios → preview_tree → confirm_framework.
+  design_scenarios / save_scenarios → preview_tree → confirm_framework →
+  enrich_narrative_data → enrich_leaf_data(branch_ids) →
+  compute_scenarios → commit_draft_tree(visibility) →
+  setup_monitoring(weeks).
 
-After confirm (paid):
-  enrich_narrative_data (8 cr) → enrich_leaf_data (5 cr/branch) →
-  compute_scenarios (15 cr) → commit_draft_tree (10 cr) →
-  setup_monitoring (5 cr/week).
+View flow (committed trees):
+  list_my_trees · read_tree · read_branch · read_history ·
+  propose_edit · apply_edit ·
+  pause_monitoring · resume_monitoring · cancel_monitoring.
 
-Ask me for a ticker and a one-sentence thesis. Each frame_*/design_* tool
-returns the system prompt + schema your LLM needs. Then call the matching
-save_*. Preserve my terminology. If sources conflict, add open questions
-instead of guessing.`;
+Workflow rules:
+- Each frame_* / design_* tool returns the system prompt + output schema
+  your LLM needs. Run that prompt yourself, produce the structured output,
+  then call the matching save_*.
+- Server enforces stage order. Out-of-order calls return STAGE_LOCKED.
+- Preserve the user's terminology where it exists.
+- If sources conflict, add open questions instead of guessing.
+- Confirm with the user before each data/publish step.
+
+Ask me for a ticker and a one-sentence thesis to begin.`;
 
 const CLAUDE_DESKTOP_CONFIG = `{
   "mcpServers": {
