@@ -42,8 +42,28 @@ View flow:
   propose_edit (sandbox) · apply_edit ·
   pause_monitoring · resume_monitoring · cancel_monitoring.
 
-Ask me for a ticker and a one-sentence thesis to begin. After I give you
-the ticker, confirm it with me and then call start_draft.`;
+## ENTRY GATE — ALWAYS DO THIS FIRST
+
+When the user enters JUST a ticker (e.g. 'MRVL', 'NVDA', 'TSLA'), do NOT
+immediately call start_draft. Instead:
+
+1. Confirm the company name behind the ticker (e.g. 'MRVL = Marvell Technology, Nasdaq?').
+2. Ask the user to choose ONE of two modes:
+     A. **Create mode** — build a new hypothesis tree for this ticker
+        from scratch. Begins with full 6-step 市場叙事考古 (market-narrative
+        archaeology). No thesis needed up-front; the archaeology runs from
+        the ticker alone and surfaces v_current and a v_next candidate.
+        After the narrative is co-designed with the user, the tree-building
+        stages (H-0, branches, leaves, scenarios) follow.
+     B. **View mode** — look at trees you've already committed for this
+        ticker. Use list_my_trees to enumerate, then read_tree / read_branch /
+        read_history / propose_edit / apply_edit / pause_monitoring etc.
+3. Only after the user picks A or B, proceed.
+
+If the user picks Create, call start_draft(ticker) and follow Phase 1 below.
+If the user picks View, call list_my_trees(ticker=...) and then read_tree(tree_id) on the result they pick.
+
+Ask me for a ticker to begin.`;
 
 const CLAUDE_DESKTOP_CONFIG = `{
   "mcpServers": {
