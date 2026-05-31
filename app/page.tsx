@@ -14,16 +14,30 @@ export default async function Home() {
           Every investment thesis as a tree. Every claim has a kill condition. Every verdict
           is signed, timestamped, and disputable. The wire protocol for AI-native equity research.
         </p>
+        <div className="mt-6 flex gap-3">
+          <Link
+            href="/signup"
+            className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
+          >
+            Sign up free
+          </Link>
+          <Link
+            href="/account"
+            className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
+          >
+            My account
+          </Link>
+          <Link
+            href="/start"
+            className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
+          >
+            Setup guide
+          </Link>
+        </div>
         <div className="mt-4 flex gap-4 text-xs text-muted">
           <Link href="/spec" className="underline-offset-4 hover:underline">
             Spec v0.2
           </Link>
-          <a
-            href="https://github.com/hopakhei/drawtree-api"
-            className="underline-offset-4 hover:underline"
-          >
-            GitHub
-          </a>
           <a href="/api/health" className="underline-offset-4 hover:underline">
             Health
           </a>
@@ -32,12 +46,7 @@ export default async function Home() {
 
       {trees.length === 0 ? (
         <div className="border border-line rounded p-8 text-center text-muted text-sm">
-          No trees published yet. The reference instance is being seeded.
-          <br />
-          See <a href="https://github.com/hopakhei/drawtree-api/tree/main/examples" className="underline">
-            examples/
-          </a>{" "}
-          to publish your first.
+          No public trees yet. Sign up to publish your first.
         </div>
       ) : (
         <table className="w-full border-collapse text-sm">
@@ -109,14 +118,11 @@ export default async function Home() {
 
       <footer className="mt-20 text-xs text-muted border-t border-line pt-6">
         <p>
-          drawtree.capital · operated by{" "}
-          <a href="https://90s.pm.investing" className="underline">
-            90s.pm.investing
-          </a>{" "}
-          · MIT-licensed protocol · published trees are signed Ed25519 ·{" "}
-          <a href="/spec" className="underline">
+          drawtree.capital · structured equity research methodology ·
+          published trees are signed Ed25519 ·{" "}
+          <Link href="/spec" className="underline">
             see spec
-          </a>
+          </Link>
         </p>
       </footer>
     </main>

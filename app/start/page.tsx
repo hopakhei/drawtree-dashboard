@@ -224,7 +224,7 @@ export default function Start() {
         <div className="mt-3 flex gap-2">
           <CopyBtn text={STARTER_PROMPT} label="Copy starter prompt" />
           <a
-            href="https://github.com/hopakhei/drawtree-mcp/blob/main/docs/starter-skill.md"
+            href="https://drawtree.capital/skill"
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-1.5 text-xs border border-line rounded hover:bg-paper-2 transition"
@@ -306,7 +306,7 @@ export default function Start() {
             Protocol spec
           </Link>
           <a
-            href="https://github.com/hopakhei/drawtree-mcp"
+            href="https://drawtree.capital"
             className="underline-offset-4 hover:underline"
           >
             drawtree-mcp on GitHub

@@ -6,7 +6,7 @@ export default function SpecPage() {
         <p>
           The full v0.2 specification lives in the{" "}
           <a
-            href="https://github.com/hopakhei/drawtree-api/blob/main/spec/drawtree-protocol-v0.2.md"
+            href="https://drawtree.capital/spec"
             className="underline"
           >
             drawtree-api repo
