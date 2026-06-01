@@ -247,6 +247,33 @@ export default function Account() {
     }
   }
 
+  async function releaseHolds() {
+    if (!apiKey) return;
+    const r = await fetch(`${API_URL}/v1/account/release_stale_holds`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    const body = await r.json();
+    if (r.ok) {
+      // Refresh balance after release
+      const m = await fetch(`${API_URL}/v1/account/me`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (m.ok) setMe(await m.json());
+      setTopupBanner({
+        kind: "success",
+        message:
+          body.released_count > 0
+            ? `${body.released_count} stuck hold${
+                body.released_count > 1 ? "s" : ""
+              } released. Your available credits have been restored.`
+            : "No stuck holds found.",
+      });
+    } else {
+      setError(body?.detail?.code || "Release failed");
+    }
+  }
+
   async function regenerate() {
     if (!apiKey) return;
     if (
@@ -539,6 +566,21 @@ export default function Account() {
                 <span>{me.display_name}</span>
               </div>
             </div>
+            <div className="mt-5 pt-4 border-t border-line">
+              <h3 className="text-sm font-medium">Release stuck credits</h3>
+              <p className="text-xs text-muted mt-1">
+                If credits show as &ldquo;held&rdquo; but nothing is running
+                (e.g. a tool crashed mid-call), this refunds every pending
+                hold older than 5 minutes back to your available balance.
+              </p>
+              <button
+                onClick={releaseHolds}
+                className="mt-3 px-3 py-1.5 text-xs border border-line rounded hover:bg-line/40"
+              >
+                Release stuck credits
+              </button>
+            </div>
+
             <div className="mt-5 pt-4 border-t border-line">
               <h3 className="text-sm font-medium">Rotate API key</h3>
               <p className="text-xs text-muted mt-1">
