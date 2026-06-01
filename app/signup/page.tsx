@@ -32,7 +32,14 @@ export default function Signup() {
       });
       const body = await r.json();
       if (!r.ok) {
-        setError(body?.detail?.code || body?.detail || "Signup failed");
+        if (r.status === 409 || body?.detail?.code === "EMAIL_ALREADY_REGISTERED") {
+          setError(
+            body?.detail?.message ||
+              "An account with this email already exists. Sign in by email instead."
+          );
+        } else {
+          setError(body?.detail?.message || body?.detail?.code || body?.detail || "Signup failed");
+        }
       } else {
         setResult(body);
       }
