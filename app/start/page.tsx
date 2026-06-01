@@ -69,7 +69,7 @@ immediately call start_draft. Instead:
 3. Only after the user picks A or B, proceed.
 
 If the user picks Create, call start_draft(ticker) and follow Phase 1 below.
-If the user picks View, call my_workspace() first to show them every draft + tree on the account. Then read_tree(tree_id) on whatever they pick. If they want to resume an in-progress draft, the draft's `suggested_next_tool` field tells you exactly which tool to call next.
+If the user picks View, call my_workspace() first to show them every draft + tree on the account. Then read_tree(tree_id) on whatever they pick. If they want to resume an in-progress draft, the draft's 'suggested_next_tool' field tells you exactly which tool to call next.
 
 Ask me for a ticker to begin.`;
 
