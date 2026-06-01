@@ -576,22 +576,22 @@ export default function Account() {
                   </h3>
                   <ul className="divide-y divide-line border border-line rounded">
                     {workspace.drafts.map((d) => (
-                      <li
-                        key={d.draft_id}
-                        className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium">{d.ticker}</div>
-                          <div className="text-xs text-muted truncate">
-                            {d.stage.toLowerCase().replace(/_/g, " ")} · next:{" "}
-                            <code className="text-[11px]">
-                              {d.suggested_next_tool || "—"}
-                            </code>
+                      <li key={d.draft_id}>
+                        <Link
+                          href={`/account/draft/${d.draft_id}`}
+                          className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-line/40"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium">{d.ticker}</div>
+                            <div className="text-xs text-muted truncate">
+                              {d.stage.toLowerCase().replace(/_/g, " ")} · next:{" "}
+                              <code className="text-[11px]">
+                                {d.suggested_next_tool || "—"}
+                              </code>
+                            </div>
                           </div>
-                        </div>
-                        <code className="text-[10px] text-muted shrink-0">
-                          {d.draft_id.slice(0, 8)}…
-                        </code>
+                          <span className="text-xs text-muted shrink-0">View →</span>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -617,24 +617,24 @@ export default function Account() {
                             null
                           : null;
                       return (
-                        <li
-                          key={t.tree_id}
-                          className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium">
-                              {t.ticker}
-                              <span className="ml-2 text-[10px] uppercase tracking-wider text-muted">
-                                {t.visibility}
-                              </span>
+                        <li key={t.tree_id}>
+                          <Link
+                            href={`/account/tree/${t.tree_id}`}
+                            className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-line/40"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium">
+                                {t.ticker}
+                                <span className="ml-2 text-[10px] uppercase tracking-wider text-muted">
+                                  {t.visibility}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted truncate">
+                                {v ? `Verdict: ${v}` : "No verdict yet"}
+                              </div>
                             </div>
-                            <div className="text-xs text-muted truncate">
-                              {v ? `Verdict: ${v}` : "No verdict yet"}
-                            </div>
-                          </div>
-                          <code className="text-[10px] text-muted shrink-0">
-                            {t.tree_id.slice(0, 8)}…
-                          </code>
+                            <span className="text-xs text-muted shrink-0">View →</span>
+                          </Link>
                         </li>
                       );
                     })}
