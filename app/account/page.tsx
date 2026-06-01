@@ -94,10 +94,15 @@ export default function Account() {
           return d;
         })
         .then((d) => {
-          setApiKey(d.api_key);
-          setNewKey(d.api_key);
+          // verify_login_link now returns a 24h session_token (dts_...),
+          // NOT a new API key. The MCP API key is unchanged.
+          const tok = d.session_token || d.api_key;
+          setApiKey(tok);
+          // Do NOT show this in the 'API key' confirmation banner —
+          // session tokens are not MCP keys.
+          setNewKey(null);
           try {
-            sessionStorage.setItem("drawtree_api_key", d.api_key);
+            sessionStorage.setItem("drawtree_api_key", tok);
           } catch {}
           setSignInState("idle");
           window.history.replaceState({}, "", "/account");
@@ -648,6 +653,9 @@ export default function Account() {
             <h2 className="text-lg">MCP setup</h2>
             <p className="text-xs text-muted mt-1 mb-4">
               Add a custom MCP connector in your AI client with these details.
+              Your API key was shown once when you signed up — if you've lost
+              it, click <strong>Regenerate API key</strong> in Account details
+              below. Signing in by email does <em>not</em> change your MCP key.
             </p>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
@@ -660,7 +668,7 @@ export default function Account() {
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted">Value</span>
-                <code className="text-xs">Bearer {apiKey.slice(0, 8)}…</code>
+                <code className="text-xs">Bearer dt_… (your API key)</code>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
