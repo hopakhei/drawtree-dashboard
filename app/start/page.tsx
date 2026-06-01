@@ -33,9 +33,13 @@ Phase 1 — Framework design (co-design, one stage at a time):
   design_scenarios → walk through Bull/Base/Bear peer tiers → confirm → save_scenarios
   preview_tree → confirm_framework (only after the user has approved the whole framework)
 
-Phase 2 — Batch execution (NO pausing, single final stop):
+Phase 2 — Batch execution (ONE tool call + the summary):
   After confirm_framework you do NOT pause between steps. Tell the user the data fetch + publish + report will run end-to-end and they'll see the full report at the end.
-  enrich_narrative_data → enrich_leaf_data(all branch_ids) → compute_scenarios → commit_draft_tree(visibility='private') → summarize_tree(tree_id) → PRESENT THE 11-SECTION REPORT to the user. Then ask once: 'Set up weekly monitoring?'
+  Step 1: phase2_run_all(draft_id, branch_ids=[ALL saved branches, e.g. ['A','B','C','D']], visibility='private')
+          — the server runs enrich_narrative_data + enrich_leaf_data + compute_scenarios + commit_tree internally and returns the tree_id. This is ONE tool call.
+  Step 2: summarize_tree(tree_id from phase2_run_all) — renders the final 10-section report.
+  Present the full summarize_tree output to the user as the conclusion. Then ask once: 'Set up weekly monitoring?'
+  If phase2_run_all returns ok=false, tell the user which step failed (response.failed_step + error_detail) and ask whether to retry that step alone or abandon. Earlier steps are saved — calling phase2_run_all again will skip them.
 
 View flow:
   list_my_trees · read_tree · read_branch · read_history ·
