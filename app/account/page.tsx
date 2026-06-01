@@ -34,7 +34,15 @@ export default function Account() {
   const [devModeLink, setDevModeLink] = useState<string | null>(null);
   const [showKeyFallback, setShowKeyFallback] = useState(false);
 
-  // On mount: look for ?token=... (magic link click) or ?api_key=...
+  // Top-up status banner (after returning from Stripe)
+  const [topupBanner, setTopupBanner] = useState<
+    null | { kind: "success" | "cancel" | "pending"; message: string }
+  >(null);
+  const [pollAttempts, setPollAttempts] = useState(0);
+
+  // On mount: look for ?token=... (magic link click), ?api_key=...,
+  // or a previously-saved key in sessionStorage so Stripe-redirect
+  // round-trips don't log the user out.
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
     const token = qs.get("token");
@@ -59,6 +67,9 @@ export default function Account() {
         .then((d) => {
           setApiKey(d.api_key);
           setNewKey(d.api_key);
+          try {
+            sessionStorage.setItem("drawtree_api_key", d.api_key);
+          } catch {}
           setSignInState("idle");
           window.history.replaceState({}, "", "/account");
         })
@@ -81,6 +92,35 @@ export default function Account() {
 
     if (fromQs) {
       setApiKey(fromQs);
+      try {
+        sessionStorage.setItem("drawtree_api_key", fromQs);
+      } catch {}
+      window.history.replaceState({}, "", "/account");
+      return;
+    }
+
+    // Restore session from sessionStorage (Stripe redirect, refresh).
+    try {
+      const saved = sessionStorage.getItem("drawtree_api_key");
+      if (saved) setApiKey(saved);
+    } catch {}
+
+    // Top-up return banner. Webhook usually credits within 3-10s.
+    const topup = qs.get("topup");
+    if (topup === "success") {
+      setTopupBanner({
+        kind: "pending",
+        message:
+          "Payment received. Adding credits to your account — this usually takes a few seconds.",
+      });
+      // Strip the query so a manual refresh doesn't re-trigger the banner.
+      window.history.replaceState({}, "", "/account");
+    } else if (topup === "cancel") {
+      setTopupBanner({
+        kind: "cancel",
+        message:
+          "Payment cancelled. No charges were made and your account is unchanged.",
+      });
       window.history.replaceState({}, "", "/account");
     }
   }, []);
@@ -102,6 +142,45 @@ export default function Account() {
       .catch((e) => setError(`Lookup failed (${e?.message || "unknown"})`))
       .finally(() => setLoading(false));
   }, [apiKey]);
+
+  // Poll for balance updates while a top-up is pending
+  useEffect(() => {
+    if (!apiKey || !me || !topupBanner || topupBanner.kind !== "pending")
+      return;
+    if (pollAttempts >= 12) {
+      // ~24s elapsed; webhook clearly delayed.
+      setTopupBanner({
+        kind: "pending",
+        message:
+          "Your payment is confirmed but credits haven't landed yet. Refresh in a minute. If it still hasn't updated, email support@drawtree.capital.",
+      });
+      return;
+    }
+    const startBalance = me.balance;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`${API_URL}/v1/account/me`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!r.ok) throw new Error(`${r.status}`);
+        const d = await r.json();
+        setMe(d);
+        if (d.balance > startBalance) {
+          const credited = d.balance - startBalance;
+          setTopupBanner({
+            kind: "success",
+            message: `${credited} credits added. Your new balance is ${d.balance}.`,
+          });
+        } else {
+          setPollAttempts((n) => n + 1);
+        }
+      } catch {
+        setPollAttempts((n) => n + 1);
+      }
+    }, 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey, me?.balance, topupBanner?.kind, pollAttempts]);
 
   async function requestLink(e: React.FormEvent) {
     e.preventDefault();
@@ -184,6 +263,9 @@ export default function Account() {
     if (r.ok && body.api_key) {
       setNewKey(body.api_key);
       setApiKey(body.api_key);
+      try {
+        sessionStorage.setItem("drawtree_api_key", body.api_key);
+      } catch {}
     } else {
       setError(body?.detail?.code || "Regenerate failed");
     }
@@ -301,7 +383,53 @@ export default function Account() {
       >
         ← Drawtree
       </Link>
-      <h1 className="text-3xl tracking-tight mt-3">My account</h1>
+      <div className="mt-3 flex items-baseline justify-between">
+        <h1 className="text-3xl tracking-tight">My account</h1>
+        <button
+          onClick={() => {
+            try {
+              sessionStorage.removeItem("drawtree_api_key");
+            } catch {}
+            setApiKey("");
+            setMe(null);
+            setNewKey(null);
+            setTopupBanner(null);
+          }}
+          className="text-xs text-muted underline-offset-4 hover:underline"
+        >
+          Sign out
+        </button>
+      </div>
+
+      {topupBanner && (
+        <div
+          className={`mt-5 text-sm rounded px-4 py-3 border ${
+            topupBanner.kind === "success"
+              ? "text-emerald-800 bg-emerald-50 border-emerald-200"
+              : topupBanner.kind === "cancel"
+              ? "text-muted bg-paper border-line"
+              : "text-blue-800 bg-blue-50 border-blue-200"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            <span className="text-base leading-none">
+              {topupBanner.kind === "success"
+                ? "✓"
+                : topupBanner.kind === "cancel"
+                ? "—"
+                : "⋯"}
+            </span>
+            <div className="flex-1">{topupBanner.message}</div>
+            <button
+              onClick={() => setTopupBanner(null)}
+              className="text-xs opacity-60 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading && <p className="text-sm text-muted mt-4">Loading…</p>}
       {error && (
