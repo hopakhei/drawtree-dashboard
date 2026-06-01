@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import FrameworkView, { FrameworkData } from "../../_components/FrameworkView";
 import ErrorBoundary from "../../_components/ErrorBoundary";
@@ -72,9 +72,9 @@ function normalize(d: DraftResponse): FrameworkData {
 export default function DraftPage({
   params,
 }: {
-  params: Promise<{ draft_id: string }>;
+  params: { draft_id: string };
 }) {
-  const { draft_id } = use(params);
+  const { draft_id } = params;
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [data, setData] = useState<FrameworkData | null>(null);
   const [rawStage, setRawStage] = useState<string>("");

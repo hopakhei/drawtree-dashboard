@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import FrameworkView, { FrameworkData } from "../../_components/FrameworkView";
 import ErrorBoundary from "../../_components/ErrorBoundary";
@@ -40,9 +40,9 @@ function normalizeTreePayload(t: TreeResponse): FrameworkData {
 export default function TreePage({
   params,
 }: {
-  params: Promise<{ tree_id: string }>;
+  params: { tree_id: string };
 }) {
-  const { tree_id } = use(params);
+  const { tree_id } = params;
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [data, setData] = useState<FrameworkData | null>(null);
   const [loading, setLoading] = useState(true);
