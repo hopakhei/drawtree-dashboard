@@ -86,10 +86,12 @@ const VERDICT_BADGE: Record<string, { icon: string; color: string; label: string
 
 function VerdictBadge({ verdict }: { verdict?: any }) {
   if (!verdict) return null;
-  const key =
-    typeof verdict === "string"
-      ? verdict.toLowerCase().replace(/\s+/g, "_")
-      : (verdict.label || verdict.verdict || "").toLowerCase().replace(/\s+/g, "_");
+  let raw = "";
+  if (typeof verdict === "string") raw = verdict;
+  else if (typeof verdict === "object")
+    raw = String(verdict.label || verdict.verdict || "");
+  if (!raw) return null;
+  const key = raw.toLowerCase().replace(/\s+/g, "_");
   const m = VERDICT_BADGE[key];
   if (!m) {
     return (
@@ -107,11 +109,12 @@ function VerdictBadge({ verdict }: { verdict?: any }) {
 
 function LeafCard({ leaf }: { leaf: Leaf }) {
   const [open, setOpen] = useState(false);
-  const f = leaf.falsification || {};
+  const f = (leaf && leaf.falsification) || {};
   const fHuman =
     f.metric || f.operator || f.threshold !== undefined
       ? `${f.metric ?? "?"} ${f.operator ?? ""} ${f.threshold ?? ""}${f.window ? ` (${f.window})` : ""}`
       : null;
+  const dataPoints = Array.isArray((leaf as any).data_points) ? (leaf as any).data_points : [];
   return (
     <li className="border border-line rounded">
       <button
@@ -140,13 +143,17 @@ function LeafCard({ leaf }: { leaf: Leaf }) {
               <div>{leaf.hypothesis}</div>
             </div>
           )}
-          {leaf.data_points && Array.isArray(leaf.data_points) && leaf.data_points.length > 0 && (
+          {dataPoints.length > 0 && (
             <div>
               <div className="text-[11px] uppercase tracking-wider text-muted">數據</div>
               <ul className="list-disc list-inside text-sm space-y-0.5">
-                {leaf.data_points.slice(0, 8).map((d: any, i: number) => (
+                {dataPoints.slice(0, 8).map((d: any, i: number) => (
                   <li key={i}>
-                    {typeof d === "string" ? d : d?.label ? `${d.label}: ${d.value ?? ""}` : JSON.stringify(d)}
+                    {typeof d === "string"
+                      ? d
+                      : d && typeof d === "object" && d.label
+                      ? `${d.label}: ${d.value ?? ""}`
+                      : JSON.stringify(d)}
                   </li>
                 ))}
               </ul>
@@ -221,12 +228,20 @@ function BranchSection({ branch, leaves }: { branch: Branch; leaves: Leaf[] }) {
 }
 
 function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
+  // scenarios may legitimately be {} or have non-dict bull/base/bear. Guard.
+  const safe = (scenarios as any) || {};
+  const pick = (k: string) => {
+    const v = safe[k];
+    return v && typeof v === "object" ? v : null;
+  };
   const tiers = [
-    { key: "bull", label: "Bull", icon: "🐂", data: scenarios.bull },
-    { key: "base", label: "Base", icon: "🐃", data: scenarios.base },
-    { key: "bear", label: "Bear", icon: "🐻", data: scenarios.bear },
+    { key: "bull", label: "Bull", icon: "🐂", data: pick("bull") },
+    { key: "base", label: "Base", icon: "🐃", data: pick("base") },
+    { key: "bear", label: "Bear", icon: "🐻", data: pick("bear") },
   ];
-  const hasAny = tiers.some((t) => t.data && (t.data.value !== undefined || t.data.pct !== undefined));
+  const hasAny = tiers.some(
+    (t) => t.data && (t.data.value !== undefined || t.data.pct !== undefined)
+  );
   if (!hasAny) {
     return (
       <div className="text-sm text-muted">
@@ -252,14 +267,21 @@ function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
                   <span className="ml-2">${t.data.value}</span>
                 )}
               </div>
-              {pct !== undefined && (
+              {pct !== undefined && pct !== null && (
                 <span
                   className={`text-xs ${
-                    pct > 0 ? "text-emerald-700" : pct < 0 ? "text-red-700" : "text-muted"
+                    typeof pct === "number"
+                      ? pct > 0
+                        ? "text-emerald-700"
+                        : pct < 0
+                        ? "text-red-700"
+                        : "text-muted"
+                      : "text-muted"
                   }`}
                 >
-                  {pct > 0 ? "+" : ""}
-                  {pct.toFixed?.(1) ?? pct}%
+                  {typeof pct === "number"
+                    ? `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`
+                    : String(pct)}
                 </span>
               )}
             </div>
@@ -274,9 +296,15 @@ function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
 }
 
 export default function FrameworkView({ data }: { data: FrameworkData }) {
-  const branches = data.branches || [];
-  const leavesByBranch = data.leaves_by_branch || {};
-  const narrative = data.narrative?.payload || null;
+  const branches = Array.isArray(data?.branches) ? data.branches : [];
+  const leavesByBranch =
+    data?.leaves_by_branch && typeof data.leaves_by_branch === "object"
+      ? data.leaves_by_branch
+      : {};
+  const narrative =
+    data?.narrative && typeof data.narrative === "object"
+      ? (data.narrative as any).payload || null
+      : null;
   const versions =
     narrative && typeof narrative === "object"
       ? narrative.versions || narrative.narrative_versions || null
@@ -328,17 +356,22 @@ export default function FrameworkView({ data }: { data: FrameworkData }) {
             </span>
           </div>
           <div className="space-y-3">
-            {branches.map((b) => (
-              <BranchSection
-                key={b.id}
-                branch={b}
-                leaves={
-                  b.leaves /* trees: leaves embedded in branch */ ??
-                  leavesByBranch[b.id]?.leaves /* drafts: separate map */ ??
-                  []
-                }
-              />
-            ))}
+            {branches.map((b, idx) => {
+              const id = b?.id || `branch-${idx}`;
+              const treeLeaves = Array.isArray((b as any)?.leaves) ? (b as any).leaves : null;
+              const draftLeaves =
+                leavesByBranch[id] && Array.isArray((leavesByBranch[id] as any).leaves)
+                  ? (leavesByBranch[id] as any).leaves
+                  : null;
+              const leaves = treeLeaves || draftLeaves || [];
+              return (
+                <BranchSection
+                  key={id}
+                  branch={{ ...b, id }}
+                  leaves={leaves}
+                />
+              );
+            })}
           </div>
           {data.mece_rationale && (
             <p className="text-xs text-muted mt-3">

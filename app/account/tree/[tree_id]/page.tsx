@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import FrameworkView, { FrameworkData } from "../../_components/FrameworkView";
+import ErrorBoundary from "../../_components/ErrorBoundary";
 
 const API_URL = "https://drawtree-api.onrender.com";
 
@@ -107,7 +108,9 @@ export default function TreePage({
               tree_id: {tree_id}
             </p>
           </header>
-          <FrameworkView data={data} />
+          <ErrorBoundary label="Tree viewer">
+            <FrameworkView data={data} />
+          </ErrorBoundary>
         </>
       )}
     </main>

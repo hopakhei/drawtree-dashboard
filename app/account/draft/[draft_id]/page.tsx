@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import FrameworkView, { FrameworkData } from "../../_components/FrameworkView";
+import ErrorBoundary from "../../_components/ErrorBoundary";
 
 const API_URL = "https://drawtree-api.onrender.com";
 
@@ -155,7 +156,9 @@ export default function DraftPage({
               draft_id: {draft_id}
             </p>
           </header>
-          <FrameworkView data={data} />
+          <ErrorBoundary label="Draft viewer">
+            <FrameworkView data={data} />
+          </ErrorBoundary>
         </>
       )}
     </main>
