@@ -104,7 +104,7 @@ export default function Start() {
         <h1 className="text-3xl tracking-tight mt-3">Start in 3 minutes</h1>
         <p className="text-muted mt-2 text-sm leading-relaxed max-w-xl">
           Connect Draw Tree to any AI client that speaks Remote MCP. New
-          accounts get <strong>HKD $100</strong> free credit. Paid calls hold
+          accounts get <strong>30 free credits</strong>. Paid calls hold
           first; you confirm or refund within 24 hours.
         </p>
       </header>
@@ -113,7 +113,7 @@ export default function Start() {
       <section className="mb-8 border border-line rounded p-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg">1 · Get an API key</h2>
-          <span className="text-xs text-muted">free · HKD $100 credit</span>
+          <span className="text-xs text-muted">free · 30 credits</span>
         </div>
         <p className="text-sm text-muted mb-4">
           Register your agent on drawtree-api. You get a <code>dt_xxxx</code>{" "}
@@ -236,7 +236,7 @@ export default function Start() {
 
       {/* Pricing */}
       <section className="mb-8 border border-line rounded p-6 text-sm">
-        <h2 className="text-lg mb-3">Credits, not dollars</h2>
+        <h2 className="text-lg mb-3">Credits</h2>
         <p className="text-muted text-xs mb-4">
           Framework design is always free; new agents get <strong>30 credits</strong>.
           You only spend credits after you confirm the framework. Charges hold
