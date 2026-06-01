@@ -18,6 +18,32 @@ type Me = {
   lifetime_refunded: number;
 };
 
+type DraftRow = {
+  draft_id: string;
+  ticker: string;
+  stage: string;
+  framework_confirmed: boolean;
+  suggested_next_tool: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type TreeRow = {
+  tree_id: string;
+  ticker: string;
+  visibility: string;
+  latest_verdict: any;
+  committed_at: string | null;
+  updated_at: string | null;
+};
+
+type Workspace = {
+  drafts: DraftRow[];
+  draft_count: number;
+  trees: TreeRow[];
+  tree_count: number;
+};
+
 type SignInState = "idle" | "sending" | "sent" | "verifying" | "error";
 
 export default function Account() {
@@ -39,6 +65,9 @@ export default function Account() {
     null | { kind: "success" | "cancel" | "pending"; message: string }
   >(null);
   const [pollAttempts, setPollAttempts] = useState(0);
+
+  // Workspace overview (drafts + trees)
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
 
   // On mount: look for ?token=... (magic link click), ?api_key=...,
   // or a previously-saved key in sessionStorage so Stripe-redirect
@@ -128,15 +157,23 @@ export default function Account() {
   useEffect(() => {
     if (!apiKey) return;
     setLoading(true);
-    fetch(`${API_URL}/v1/account/me`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`${r.status}`);
+    Promise.all([
+      fetch(`${API_URL}/v1/account/me`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      }).then(async (r) => {
+        if (!r.ok) throw new Error(`me ${r.status}`);
         return r.json();
-      })
-      .then((d) => {
-        setMe(d);
+      }),
+      fetch(`${API_URL}/v1/account/workspace`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      }).then(async (r) => {
+        if (!r.ok) throw new Error(`workspace ${r.status}`);
+        return r.json();
+      }),
+    ])
+      .then(([m, w]) => {
+        setMe(m);
+        setWorkspace(w);
         setError(null);
       })
       .catch((e) => setError(`Lookup failed (${e?.message || "unknown"})`))
@@ -514,6 +551,98 @@ export default function Account() {
               ))}
             </div>
           </section>
+
+          {workspace && (
+            <section className="mt-6 border border-line rounded p-6">
+              <div className="flex items-baseline justify-between mb-3">
+                <h2 className="text-lg">My workspace</h2>
+                <span className="text-xs text-muted">
+                  {workspace.draft_count} draft{workspace.draft_count === 1 ? "" : "s"} ·{" "}
+                  {workspace.tree_count} tree{workspace.tree_count === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              {workspace.draft_count === 0 && workspace.tree_count === 0 && (
+                <p className="text-sm text-muted">
+                  No work yet. Start a new tree by talking to your AI client with
+                  the Draw Tree MCP connector set up.
+                </p>
+              )}
+
+              {workspace.draft_count > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs uppercase tracking-wider text-muted mb-2">
+                    Drafts in progress
+                  </h3>
+                  <ul className="divide-y divide-line border border-line rounded">
+                    {workspace.drafts.map((d) => (
+                      <li
+                        key={d.draft_id}
+                        className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium">{d.ticker}</div>
+                          <div className="text-xs text-muted truncate">
+                            {d.stage.toLowerCase().replace(/_/g, " ")} · next:{" "}
+                            <code className="text-[11px]">
+                              {d.suggested_next_tool || "—"}
+                            </code>
+                          </div>
+                        </div>
+                        <code className="text-[10px] text-muted shrink-0">
+                          {d.draft_id.slice(0, 8)}…
+                        </code>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px] text-muted mt-2">
+                    Resume any draft by asking your AI client to continue the
+                    relevant ticker. The next tool to call is shown above.
+                  </p>
+                </div>
+              )}
+
+              {workspace.tree_count > 0 && (
+                <div>
+                  <h3 className="text-xs uppercase tracking-wider text-muted mb-2">
+                    Committed trees
+                  </h3>
+                  <ul className="divide-y divide-line border border-line rounded">
+                    {workspace.trees.map((t) => {
+                      const v =
+                        t.latest_verdict &&
+                        typeof t.latest_verdict === "object"
+                          ? t.latest_verdict.h0_verdict ||
+                            t.latest_verdict.verdict ||
+                            null
+                          : null;
+                      return (
+                        <li
+                          key={t.tree_id}
+                          className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium">
+                              {t.ticker}
+                              <span className="ml-2 text-[10px] uppercase tracking-wider text-muted">
+                                {t.visibility}
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted truncate">
+                              {v ? `Verdict: ${v}` : "No verdict yet"}
+                            </div>
+                          </div>
+                          <code className="text-[10px] text-muted shrink-0">
+                            {t.tree_id.slice(0, 8)}…
+                          </code>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="mt-6 border border-line rounded p-6">
             <h2 className="text-lg">MCP setup</h2>

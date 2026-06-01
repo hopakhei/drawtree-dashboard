@@ -42,7 +42,8 @@ Phase 2 — Batch execution (ONE tool call + the summary):
   If phase2_run_all returns ok=false, tell the user which step failed (response.failed_step + error_detail) and ask whether to retry that step alone or abandon. Earlier steps are saved — calling phase2_run_all again will skip them.
 
 View flow:
-  list_my_trees · read_tree · read_branch · read_history ·
+  my_workspace (start here — returns drafts + trees together) ·
+  read_tree · read_branch · read_history ·
   propose_edit (sandbox) · apply_edit ·
   pause_monitoring · resume_monitoring · cancel_monitoring.
 
@@ -59,13 +60,16 @@ immediately call start_draft. Instead:
         the ticker alone and surfaces v_current and a v_next candidate.
         After the narrative is co-designed with the user, the tree-building
         stages (H-0, branches, leaves, scenarios) follow.
-     B. **View mode** — look at trees you've already committed for this
-        ticker. Use list_my_trees to enumerate, then read_tree / read_branch /
+     B. **View mode** — look at what you already have on this account.
+        ALWAYS call my_workspace() first (returns every draft AND tree),
+        present the list to the user, then read_tree(tree_id) / read_branch /
         read_history / propose_edit / apply_edit / pause_monitoring etc.
+        Never call read_tree(ticker=...) cold — drafts that aren't yet
+        committed will not be found and the user gets stuck.
 3. Only after the user picks A or B, proceed.
 
 If the user picks Create, call start_draft(ticker) and follow Phase 1 below.
-If the user picks View, call list_my_trees(ticker=...) and then read_tree(tree_id) on the result they pick.
+If the user picks View, call my_workspace() first to show them every draft + tree on the account. Then read_tree(tree_id) on whatever they pick. If they want to resume an in-progress draft, the draft's `suggested_next_tool` field tells you exactly which tool to call next.
 
 Ask me for a ticker to begin.`;
 
