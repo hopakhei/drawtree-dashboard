@@ -540,8 +540,8 @@ export default function Account() {
               <span className="text-sm text-muted ml-2">available credits</span>
             </div>
             <div className="text-xs text-muted mt-2">
-              Total balance {me.balance} · held {me.held} · lifetime spent{" "}
-              {me.lifetime_spent}
+              Total balance {me.balance}
+              {me.held > 0 ? ` · ${me.held} held` : ""}
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
