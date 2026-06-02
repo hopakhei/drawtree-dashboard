@@ -62,7 +62,7 @@ export default function TreePage({
   useEffect(() => {
     if (!apiKey) return;
     setLoading(true);
-    fetch(`${API_URL}/v1/trees/${tree_id}`, {
+    fetch(`${API_URL}/v1/view/trees/by-id/${tree_id}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     })
       .then(async (r) => {
