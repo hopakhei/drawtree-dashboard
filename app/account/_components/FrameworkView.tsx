@@ -84,19 +84,51 @@ const VERDICT_BADGE: Record<string, { icon: string; color: string; label: string
   falsified:                   { icon: "✗", color: "text-red-700 bg-red-50 border-red-200", label: "Falsified" },
 };
 
+// Map emoji-prefixed verdict strings (e.g. "⚪ Inconclusive",
+// "✅ Validated", "✗ Falsified") and plain labels into our state keys.
+const EMOJI_TO_STATE: Record<string, string> = {
+  "✅": "validated",
+  "🟢": "trending_positive",
+  "⚪": "inconclusive",
+  "🟠": "trending_negative",
+  "🟡": "approaching_falsification",
+  "✗": "falsified",
+  "❌": "falsified",
+};
+
+function normalizeVerdictKey(raw: string): string {
+  const s = raw.trim();
+  // Look for an emoji prefix first — works for both "✅" alone and "✅ Validated".
+  for (const [emoji, state] of Object.entries(EMOJI_TO_STATE)) {
+    if (s.startsWith(emoji)) return state;
+  }
+  return s.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+}
+
+function extractVerdictString(verdict: any): string {
+  if (!verdict) return "";
+  if (typeof verdict === "string") return verdict;
+  if (typeof verdict === "object") {
+    return String(
+      verdict.label ||
+        verdict.verdict ||
+        verdict.state ||
+        verdict.h0_verdict ||
+        "",
+    );
+  }
+  return "";
+}
+
 function VerdictBadge({ verdict }: { verdict?: any }) {
-  if (!verdict) return null;
-  let raw = "";
-  if (typeof verdict === "string") raw = verdict;
-  else if (typeof verdict === "object")
-    raw = String(verdict.label || verdict.verdict || "");
+  const raw = extractVerdictString(verdict);
   if (!raw) return null;
-  const key = raw.toLowerCase().replace(/\s+/g, "_");
+  const key = normalizeVerdictKey(raw);
   const m = VERDICT_BADGE[key];
   if (!m) {
     return (
       <span className="text-xs px-2 py-0.5 rounded border border-line text-muted">
-        {typeof verdict === "string" ? verdict : JSON.stringify(verdict).slice(0, 40)}
+        {raw.slice(0, 40)}
       </span>
     );
   }
@@ -105,6 +137,54 @@ function VerdictBadge({ verdict }: { verdict?: any }) {
       {m.icon} {m.label}
     </span>
   );
+}
+
+// Pull a leaf's verdict from the multiple shapes we've persisted historically.
+function getLeafVerdict(leaf: Leaf): any {
+  const l = leaf as any;
+  return (
+    l.verdict ??
+    l.verdict_initial ??
+    l.latest_verdict ??
+    l.verdict_state ??
+    null
+  );
+}
+
+// Aggregate counts of verdict states across a branch's leaves so we can show
+// a 2/0/3/... summary chip at the branch header.
+function summarizeBranchVerdicts(leaves: Leaf[]): { state: string; count: number; label: string; icon: string }[] {
+  const counts: Record<string, number> = {};
+  for (const l of leaves) {
+    const raw = extractVerdictString(getLeafVerdict(l));
+    if (!raw) {
+      counts["inconclusive"] = (counts["inconclusive"] || 0) + 1;
+      continue;
+    }
+    const key = normalizeVerdictKey(raw);
+    if (VERDICT_BADGE[key]) {
+      counts[key] = (counts[key] || 0) + 1;
+    } else {
+      counts["inconclusive"] = (counts["inconclusive"] || 0) + 1;
+    }
+  }
+  // Preserve a consistent display order matching the 6-state vocab.
+  const order = [
+    "validated",
+    "trending_positive",
+    "inconclusive",
+    "trending_negative",
+    "approaching_falsification",
+    "falsified",
+  ];
+  return order
+    .filter((k) => counts[k])
+    .map((k) => ({
+      state: k,
+      count: counts[k],
+      label: VERDICT_BADGE[k].label,
+      icon: VERDICT_BADGE[k].icon,
+    }));
 }
 
 function LeafCard({
@@ -179,6 +259,10 @@ function LeafCard({
     if (!canEdit) return;
     setBusy("auto");
     setEditorErr(null);
+    // Auto-fetch runs up to 5 parallel Tavily queries on a Render free
+    // instance — a cold-start round-trip can take 45-60s. Give it 90s.
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 90_000);
     try {
       const r = await fetch(`${apiUrl}/v1/paid/auto_evidence`, {
         method: "POST",
@@ -191,21 +275,46 @@ function LeafCard({
           branch_id: branchId,
           leaf_id: leaf.id,
         }),
+        signal: ac.signal,
       });
+      if (r.status === 401) {
+        setEditorErr(
+          "Session expired. Please sign in again from the account page.",
+        );
+        return;
+      }
+      if (r.status === 402) {
+        setEditorErr(
+          "Not enough credits. Top up from the account page.",
+        );
+        return;
+      }
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
-        throw new Error(d?.detail?.code || `${r.status}`);
+        const code = d?.detail?.code || d?.detail || d?.code;
+        throw new Error(typeof code === "string" ? code : `HTTP ${r.status}`);
       }
       const d = await r.json();
       if (d.ok === false) {
         setEditorErr(
-          "No public coverage found yet. Try adding a citation manually below."
+          "No public coverage found yet. Try adding a citation manually below.",
         );
       }
       onChanged?.();
     } catch (e: any) {
-      setEditorErr(`Fetch failed: ${e?.message || "unknown"}`);
+      if (e?.name === "AbortError") {
+        setEditorErr(
+          "Search took too long (>90s). The server may be cold-starting — try again in 30s.",
+        );
+      } else if (e?.message === "Failed to fetch" || e?.name === "TypeError") {
+        setEditorErr(
+          "Couldn't reach the server. Check your connection or wait for the API instance to wake up (10-15s), then retry.",
+        );
+      } else {
+        setEditorErr(`Fetch failed: ${e?.message || "unknown"}`);
+      }
     } finally {
+      clearTimeout(timer);
       setBusy(null);
     }
   }
@@ -264,7 +373,7 @@ function LeafCard({
             </div>
           )}
         </div>
-        <VerdictBadge verdict={leaf.verdict} />
+        <VerdictBadge verdict={getLeafVerdict(leaf)} />
       </button>
       {open && (
         <div className="px-4 py-3 border-t border-line text-sm space-y-2 bg-paper">
@@ -452,6 +561,7 @@ function BranchSection({
 }) {
   const [open, setOpen] = useState(true);
   const label = branch.caption || branch.label || branch.id;
+  const branchSummary = summarizeBranchVerdicts(leaves);
   return (
     <section className="border border-line rounded">
       <button
@@ -470,6 +580,20 @@ function BranchSection({
           {branch.framework?.name && (
             <div className="text-[11px] text-muted mt-0.5">
               Framework: <code>{branch.framework.name}</code>
+            </div>
+          )}
+          {branchSummary.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {branchSummary.map((s) => (
+                <span
+                  key={s.state}
+                  className={`text-[11px] px-1.5 py-0.5 rounded border ${
+                    VERDICT_BADGE[s.state]?.color || "text-muted border-line"
+                  }`}
+                >
+                  {s.icon} {s.count}
+                </span>
+              ))}
             </div>
           )}
         </div>
