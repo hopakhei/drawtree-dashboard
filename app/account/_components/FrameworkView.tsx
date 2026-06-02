@@ -107,8 +107,141 @@ function VerdictBadge({ verdict }: { verdict?: any }) {
   );
 }
 
-function LeafCard({ leaf }: { leaf: Leaf }) {
+function LeafCard({
+  leaf,
+  branchId,
+  draftId,
+  editable,
+  apiUrl,
+  apiKey,
+  onChanged,
+}: {
+  leaf: Leaf;
+  branchId?: string;
+  draftId?: string;
+  editable?: boolean;
+  apiUrl?: string;
+  apiKey?: string;
+  onChanged?: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [busy, setBusy] = useState<null | string>(null);
+  const [editorErr, setEditorErr] = useState<string | null>(null);
+  const [manualUrl, setManualUrl] = useState("");
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualSnippet, setManualSnippet] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const evidenceArr = Array.isArray((leaf as any).evidence) ? (leaf as any).evidence : [];
+
+  const canEdit = editable && draftId && branchId && leaf.id && apiUrl && apiKey;
+
+  async function appendManual() {
+    if (!canEdit || !manualUrl.trim()) return;
+    setBusy("manual");
+    setEditorErr(null);
+    try {
+      const r = await fetch(`${apiUrl}/v1/account/leaf/append_evidence`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          draft_id: draftId,
+          branch_id: branchId,
+          leaf_id: leaf.id,
+          evidence: [
+            {
+              url: manualUrl.trim(),
+              title: manualTitle.trim() || undefined,
+              snippet: manualSnippet.trim() || undefined,
+            },
+          ],
+        }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d?.detail?.code || `${r.status}`);
+      }
+      setManualUrl("");
+      setManualTitle("");
+      setManualSnippet("");
+      onChanged?.();
+    } catch (e: any) {
+      setEditorErr(`Add failed: ${e?.message || "unknown"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function refreshFromWeb() {
+    if (!canEdit || !searchQuery.trim()) return;
+    setBusy("search");
+    setEditorErr(null);
+    try {
+      const r = await fetch(`${apiUrl}/v1/paid/external_search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          query: searchQuery.trim(),
+          draft_id: draftId,
+          branch_id: branchId,
+          leaf_id: leaf.id,
+          max_results: 6,
+        }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d?.detail?.code || `${r.status}`);
+      }
+      const d = await r.json();
+      if (d.ok === false) {
+        setEditorErr(`No web results for "${searchQuery}".`);
+      } else {
+        setSearchQuery("");
+      }
+      onChanged?.();
+    } catch (e: any) {
+      setEditorErr(`Search failed: ${e?.message || "unknown"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function deleteUrl(url: string) {
+    if (!canEdit) return;
+    if (!confirm("Remove this evidence row?")) return;
+    setBusy("delete");
+    setEditorErr(null);
+    try {
+      const r = await fetch(`${apiUrl}/v1/account/leaf/delete_evidence`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          draft_id: draftId,
+          branch_id: branchId,
+          leaf_id: leaf.id,
+          url,
+        }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d?.detail?.code || `${r.status}`);
+      }
+      onChanged?.();
+    } catch (e: any) {
+      setEditorErr(`Delete failed: ${e?.message || "unknown"}`);
+    } finally {
+      setBusy(null);
+    }
+  }
   const f = (leaf && leaf.falsification) || {};
   const fHuman =
     f.metric || f.operator || f.threshold !== undefined
@@ -177,13 +310,146 @@ function LeafCard({ leaf }: { leaf: Leaf }) {
               <div className="text-muted">{leaf.notes}</div>
             </div>
           )}
+          {/* Evidence list with edit affordances */}
+          {(evidenceArr.length > 0 || canEdit) && (
+            <div className="pt-2 mt-2 border-t border-line">
+              <div className="text-[11px] uppercase tracking-wider text-muted mb-1 flex items-center justify-between">
+                <span>證據 · evidence ({evidenceArr.length})</span>
+                {canEdit && (
+                  <button
+                    onClick={() => setEditorOpen((v) => !v)}
+                    className="text-[11px] underline-offset-2 hover:underline normal-case font-normal"
+                  >
+                    {editorOpen ? "Close" : "+ Add / refresh"}
+                  </button>
+                )}
+              </div>
+              {evidenceArr.length === 0 && (
+                <div className="text-xs text-muted italic">
+                  No evidence rows yet.
+                </div>
+              )}
+              <ul className="space-y-1">
+                {evidenceArr.slice(0, 12).map((e: any, i: number) => (
+                  <li key={e?.url || i} className="text-xs">
+                    {e?.title && <div className="font-medium">{e.title}</div>}
+                    {e?.snippet && (
+                      <div className="text-muted line-clamp-2">{e.snippet}</div>
+                    )}
+                    <div className="text-[10px] text-muted flex items-center gap-2 flex-wrap">
+                      {e?.source_domain && <span>{e.source_domain}</span>}
+                      {e?.published_date && <span>· {e.published_date}</span>}
+                      {e?.url && (
+                        <a
+                          href={e.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          source ↗
+                        </a>
+                      )}
+                      {canEdit && e?.url && (
+                        <button
+                          onClick={() => deleteUrl(e.url)}
+                          disabled={busy === "delete"}
+                          className="text-red-700 hover:underline ml-auto disabled:opacity-50"
+                        >
+                          remove
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {editorOpen && canEdit && (
+                <div className="mt-3 border border-line rounded p-3 bg-paper/60 space-y-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-muted mb-1">
+                      Refresh from web (1 credit)
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder={`e.g. "${leaf.falsification?.metric || leaf.hypothesis?.slice(0, 30) || "ticker metric"}"`}
+                        className="flex-1 px-2 py-1 text-xs border border-line rounded"
+                      />
+                      <button
+                        onClick={refreshFromWeb}
+                        disabled={busy === "search" || !searchQuery.trim()}
+                        className="px-3 py-1 text-xs bg-ink text-paper rounded disabled:opacity-50"
+                      >
+                        {busy === "search" ? "Searching…" : "Search & append"}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-muted mb-1">
+                      Add citation manually (free)
+                    </div>
+                    <div className="space-y-1.5">
+                      <input
+                        type="url"
+                        value={manualUrl}
+                        onChange={(e) => setManualUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full px-2 py-1 text-xs border border-line rounded"
+                      />
+                      <input
+                        type="text"
+                        value={manualTitle}
+                        onChange={(e) => setManualTitle(e.target.value)}
+                        placeholder="Title (optional)"
+                        className="w-full px-2 py-1 text-xs border border-line rounded"
+                      />
+                      <textarea
+                        value={manualSnippet}
+                        onChange={(e) => setManualSnippet(e.target.value)}
+                        placeholder="Snippet / quote (optional)"
+                        rows={2}
+                        className="w-full px-2 py-1 text-xs border border-line rounded"
+                      />
+                      <button
+                        onClick={appendManual}
+                        disabled={busy === "manual" || !manualUrl.trim()}
+                        className="px-3 py-1 text-xs border border-line rounded hover:bg-line/40 disabled:opacity-50"
+                      >
+                        {busy === "manual" ? "Adding…" : "Add citation"}
+                      </button>
+                    </div>
+                  </div>
+                  {editorErr && (
+                    <div className="text-xs text-red-700">{editorErr}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </li>
   );
 }
 
-function BranchSection({ branch, leaves }: { branch: Branch; leaves: Leaf[] }) {
+function BranchSection({
+  branch,
+  leaves,
+  draftId,
+  editable,
+  apiUrl,
+  apiKey,
+  onChanged,
+}: {
+  branch: Branch;
+  leaves: Leaf[];
+  draftId?: string;
+  editable?: boolean;
+  apiUrl?: string;
+  apiKey?: string;
+  onChanged?: () => void;
+}) {
   const [open, setOpen] = useState(true);
   const label = branch.caption || branch.label || branch.id;
   return (
@@ -214,7 +480,16 @@ function BranchSection({ branch, leaves }: { branch: Branch; leaves: Leaf[] }) {
       {open && leaves.length > 0 && (
         <ul className="border-t border-line p-3 space-y-2 bg-paper/40">
           {leaves.map((l, i) => (
-            <LeafCard key={l.id || i} leaf={l} />
+            <LeafCard
+              key={l.id || i}
+              leaf={l}
+              branchId={branch.id}
+              draftId={draftId}
+              editable={editable}
+              apiUrl={apiUrl}
+              apiKey={apiKey}
+              onChanged={onChanged}
+            />
           ))}
         </ul>
       )}
@@ -295,7 +570,21 @@ function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
   );
 }
 
-export default function FrameworkView({ data }: { data: FrameworkData }) {
+export default function FrameworkView({
+  data,
+  draftId,
+  editable,
+  apiUrl,
+  apiKey,
+  onChanged,
+}: {
+  data: FrameworkData;
+  draftId?: string;
+  editable?: boolean;
+  apiUrl?: string;
+  apiKey?: string;
+  onChanged?: () => void;
+}) {
   const branches = Array.isArray(data?.branches) ? data.branches : [];
   const leavesByBranch =
     data?.leaves_by_branch && typeof data.leaves_by_branch === "object"
@@ -369,6 +658,11 @@ export default function FrameworkView({ data }: { data: FrameworkData }) {
                   key={id}
                   branch={{ ...b, id }}
                   leaves={leaves}
+                  draftId={draftId}
+                  editable={editable}
+                  apiUrl={apiUrl}
+                  apiKey={apiKey}
+                  onChanged={onChanged}
                 />
               );
             })}

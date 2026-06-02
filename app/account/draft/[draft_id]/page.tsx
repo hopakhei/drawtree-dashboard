@@ -55,6 +55,27 @@ function normalize(d: DraftResponse): FrameworkData {
       }
     : null;
 
+  // Merge each branch's enriched evidence into per-leaf {evidence} so the
+  // viewer can render and edit it inline.
+  const lbb = d.leaves_by_branch || {};
+  const lbbMerged: Record<string, { leaves: any[] }> = {};
+  for (const [branchId, blob] of Object.entries(lbb)) {
+    const baseLeaves = Array.isArray(blob.leaves) ? blob.leaves : [];
+    const enrichedList = Array.isArray(blob.enriched) ? blob.enriched : [];
+    const evidenceByLeafId: Record<string, any[]> = {};
+    for (const e of enrichedList) {
+      if (e?.leaf_id && Array.isArray(e?.evidence)) {
+        evidenceByLeafId[e.leaf_id] = e.evidence;
+      }
+    }
+    lbbMerged[branchId] = {
+      leaves: baseLeaves.map((l: any) => ({
+        ...l,
+        evidence: evidenceByLeafId[l?.id] || [],
+      })),
+    };
+  }
+
   return {
     ticker: d.ticker,
     stage: d.stage,
@@ -64,7 +85,7 @@ function normalize(d: DraftResponse): FrameworkData {
     h0: d.h0 ? { text: d.h0.text, metadata: d.h0.metadata } : null,
     branches: d.branches?.items || [],
     mece_rationale: d.branches?.mece_rationale || undefined,
-    leaves_by_branch: d.leaves_by_branch,
+    leaves_by_branch: lbbMerged,
     scenarios: scenarios as any,
   };
 }
@@ -157,7 +178,27 @@ export default function DraftPage({
             </p>
           </header>
           <ErrorBoundary label="Draft viewer">
-            <FrameworkView data={data} />
+            <FrameworkView
+              data={data}
+              draftId={draft_id}
+              editable={true}
+              apiUrl={API_URL}
+              apiKey={apiKey || undefined}
+              onChanged={() => {
+                // Re-fetch the draft on any edit so the viewer reflects
+                // the new evidence immediately.
+                if (!apiKey) return;
+                fetch(`${API_URL}/v1/account/draft/${draft_id}`, {
+                  headers: { Authorization: `Bearer ${apiKey}` },
+                })
+                  .then((r) => r.json())
+                  .then((d: DraftResponse) => {
+                    setRawStage(d.stage);
+                    setData(normalize(d));
+                  })
+                  .catch(() => {});
+              }}
+            />
           </ErrorBoundary>
         </>
       )}
