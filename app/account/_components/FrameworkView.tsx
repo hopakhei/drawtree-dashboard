@@ -259,24 +259,79 @@ function LeafCard({
     if (!canEdit) return;
     setBusy("auto");
     setEditorErr(null);
-    // Auto-fetch runs up to 5 parallel Tavily queries on a Render free
-    // instance — a cold-start round-trip can take 45-60s. Give it 90s.
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 90_000);
+    // Sanitize the key — sessionStorage can occasionally pick up trailing
+    // whitespace / newlines when users paste it; any non-ASCII or CR/LF in
+    // an HTTP header value makes the browser throw TypeError: Failed to
+    // fetch before the request is even sent.
+    const cleanKey = (apiKey || "").trim();
+    if (!cleanKey) {
+      setEditorErr("Not signed in. Open /account and sign in first.");
+      setBusy(null);
+      return;
+    }
+    // Pre-flight diagnostic: cheap GET to /v1/billing/balance. This separates
+    // "network/CORS is broken" (Failed to fetch on the cheap call too) from
+    // "the auto_evidence call itself failed" (cheap call succeeds, the
+    // expensive one fails). It also wakes the Render instance if it's cold.
     try {
-      const r = await fetch(`${apiUrl}/v1/paid/auto_evidence`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          draft_id: draftId,
-          branch_id: branchId,
-          leaf_id: leaf.id,
-        }),
-        signal: ac.signal,
+      const ping = await fetch(`${apiUrl}/v1/billing/balance`, {
+        headers: { Authorization: `Bearer ${cleanKey}` },
       });
+      if (ping.status === 401) {
+        setEditorErr(
+          "Session expired. Open /account and sign in again with a new magic link.",
+        );
+        setBusy(null);
+        return;
+      }
+      if (!ping.ok && ping.status !== 402) {
+        setEditorErr(`Pre-flight check failed (HTTP ${ping.status}). The server may be in a bad state — try again in 30s.`);
+        setBusy(null);
+        return;
+      }
+    } catch (pingErr: any) {
+      setEditorErr(
+        `Can't reach the API server at all (${pingErr?.message || "network error"}). The Render instance may be asleep — wait 15s and try again.`,
+      );
+      setBusy(null);
+      return;
+    }
+    // Auto-fetch runs up to 5 parallel Tavily queries on a Render free
+    // instance — a cold-start round-trip can take 45-60s. Give it 120s
+    // (we already pre-flighted to wake the instance).
+    // We also retry once on transient network failure since Render
+    // sometimes drops the first connection right after the pre-flight wake-up.
+    async function attempt(): Promise<Response> {
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 120_000);
+      try {
+        return await fetch(`${apiUrl}/v1/paid/auto_evidence`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${cleanKey}`,
+          },
+          body: JSON.stringify({
+            draft_id: draftId,
+            branch_id: branchId,
+            leaf_id: leaf.id,
+          }),
+          signal: ac.signal,
+        });
+      } finally {
+        clearTimeout(t);
+      }
+    }
+    try {
+      let r: Response;
+      try {
+        r = await attempt();
+      } catch (firstErr: any) {
+        if (firstErr?.name === "AbortError") throw firstErr;
+        // brief pause to let any half-open connection close, then retry once
+        await new Promise((res) => setTimeout(res, 2000));
+        r = await attempt();
+      }
       if (r.status === 401) {
         setEditorErr(
           "Session expired. Please sign in again from the account page.",
@@ -304,17 +359,16 @@ function LeafCard({
     } catch (e: any) {
       if (e?.name === "AbortError") {
         setEditorErr(
-          "Search took too long (>90s). The server may be cold-starting — try again in 30s.",
+          "Search took too long (>120s). Try again — the search may have actually succeeded server-side; refresh to check.",
         );
       } else if (e?.message === "Failed to fetch" || e?.name === "TypeError") {
         setEditorErr(
-          "Couldn't reach the server. Check your connection or wait for the API instance to wake up (10-15s), then retry.",
+          "The server dropped the connection twice. The Render free instance may have crashed — wait 30s and try again. If this keeps happening, the search is timing out server-side; try manual citation entry below.",
         );
       } else {
         setEditorErr(`Fetch failed: ${e?.message || "unknown"}`);
       }
     } finally {
-      clearTimeout(timer);
       setBusy(null);
     }
   }
