@@ -131,7 +131,7 @@ function LeafCard({
   const [manualUrl, setManualUrl] = useState("");
   const [manualTitle, setManualTitle] = useState("");
   const [manualSnippet, setManualSnippet] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [showManual, setShowManual] = useState(false);
   const evidenceArr = Array.isArray((leaf as any).evidence) ? (leaf as any).evidence : [];
 
   const canEdit = editable && draftId && branchId && leaf.id && apiUrl && apiKey;
@@ -175,23 +175,21 @@ function LeafCard({
     }
   }
 
-  async function refreshFromWeb() {
-    if (!canEdit || !searchQuery.trim()) return;
-    setBusy("search");
+  async function autoEvidence() {
+    if (!canEdit) return;
+    setBusy("auto");
     setEditorErr(null);
     try {
-      const r = await fetch(`${apiUrl}/v1/paid/external_search`, {
+      const r = await fetch(`${apiUrl}/v1/paid/auto_evidence`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          query: searchQuery.trim(),
           draft_id: draftId,
           branch_id: branchId,
           leaf_id: leaf.id,
-          max_results: 6,
         }),
       });
       if (!r.ok) {
@@ -200,13 +198,13 @@ function LeafCard({
       }
       const d = await r.json();
       if (d.ok === false) {
-        setEditorErr(`No web results for "${searchQuery}".`);
-      } else {
-        setSearchQuery("");
+        setEditorErr(
+          "No public coverage found yet. Try adding a citation manually below."
+        );
       }
       onChanged?.();
     } catch (e: any) {
-      setEditorErr(`Search failed: ${e?.message || "unknown"}`);
+      setEditorErr(`Fetch failed: ${e?.message || "unknown"}`);
     } finally {
       setBusy(null);
     }
@@ -365,30 +363,32 @@ function LeafCard({
               {editorOpen && canEdit && (
                 <div className="mt-3 border border-line rounded p-3 bg-paper/60 space-y-3">
                   <div>
-                    <div className="text-[11px] uppercase tracking-wider text-muted mb-1">
-                      Refresh from web (1 credit)
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={`e.g. "${leaf.falsification?.metric || leaf.hypothesis?.slice(0, 30) || "ticker metric"}"`}
-                        className="flex-1 px-2 py-1 text-xs border border-line rounded"
-                      />
-                      <button
-                        onClick={refreshFromWeb}
-                        disabled={busy === "search" || !searchQuery.trim()}
-                        className="px-3 py-1 text-xs bg-ink text-paper rounded disabled:opacity-50"
-                      >
-                        {busy === "search" ? "Searching…" : "Search & append"}
-                      </button>
-                    </div>
+                    <button
+                      onClick={autoEvidence}
+                      disabled={busy === "auto"}
+                      className="w-full px-3 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
+                    >
+                      {busy === "auto"
+                        ? "Fetching evidence…"
+                        : "✨ Auto-fetch evidence (2 credits)"}
+                    </button>
+                    <p className="text-[11px] text-muted mt-1.5">
+                      Searches across public earnings transcripts, news, and
+                      sell-side coverage based on this leaf's hypothesis and
+                      metric. Results are sanitized and attached automatically.
+                    </p>
                   </div>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-muted mb-1">
-                      Add citation manually (free)
-                    </div>
+                  <div className="pt-2 border-t border-line">
+                    <button
+                      onClick={() => setShowManual((v) => !v)}
+                      className="text-[11px] text-muted underline-offset-2 hover:underline"
+                    >
+                      {showManual
+                        ? "− Hide manual entry"
+                        : "+ Add a specific citation by hand"}
+                    </button>
+                  </div>
+                  {showManual && (
                     <div className="space-y-1.5">
                       <input
                         type="url"
@@ -419,7 +419,7 @@ function LeafCard({
                         {busy === "manual" ? "Adding…" : "Add citation"}
                       </button>
                     </div>
-                  </div>
+                  )}
                   {editorErr && (
                     <div className="text-xs text-red-700">{editorErr}</div>
                   )}
