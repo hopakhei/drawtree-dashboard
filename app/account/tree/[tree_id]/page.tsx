@@ -12,12 +12,13 @@ type TreeResponse = {
   ticker: string;
   company?: string;
   visibility: string;
+  draft_id: string | null;
   committed_at: string | null;
   payload: any;
   verdict: any;
 };
 
-function normalizeTreePayload(t: TreeResponse): FrameworkData {
+function normalizeTreePayload(t: TreeResponse, draftEvidence?: Record<string, Record<string, any[]>>): FrameworkData {
   const p = t.payload || {};
   return {
     ticker: t.ticker,
@@ -29,7 +30,15 @@ function normalizeTreePayload(t: TreeResponse): FrameworkData {
       : p.root_hypothesis
       ? { text: p.root_hypothesis }
       : null,
-    branches: p.branches || [],
+    branches: (p.branches || []).map((b: any) => ({
+      ...b,
+      leaves: (b.leaves || []).map((l: any) => ({
+        ...l,
+        evidence:
+          draftEvidence?.[b.id]?.[l.id] ??
+          (Array.isArray(l.evidence) ? l.evidence : []),
+      })),
+    })),
     mece_rationale: p.mece_rationale,
     scenarios: p.scenarios,
     narrative: p.narrative ? { payload: p.narrative } : null,
@@ -45,6 +54,7 @@ export default function TreePage({
   const { tree_id } = params;
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [data, setData] = useState<FrameworkData | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,19 +69,57 @@ export default function TreePage({
     } catch {}
   }, []);
 
-  useEffect(() => {
+  async function loadAll() {
     if (!apiKey) return;
     setLoading(true);
-    fetch(`${API_URL}/v1/view/trees/by-id/${tree_id}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`${r.status}`);
-        return r.json();
-      })
-      .then((t) => setData(normalizeTreePayload(t)))
-      .catch((e) => setError(`Failed to load tree (${e?.message || "unknown"})`))
-      .finally(() => setLoading(false));
+    try {
+      const r = await fetch(`${API_URL}/v1/view/trees/by-id/${tree_id}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!r.ok) throw new Error(`${r.status}`);
+      const t: TreeResponse = await r.json();
+      setDraftId(t.draft_id);
+
+      // If a source draft exists, fetch it so the tree viewer can use the
+      // draft's enriched evidence (which is mutable) instead of the
+      // immutable tree.payload snapshot. This lets 'Refresh from web'
+      // and 'Add citation' affect what the user sees here.
+      let draftEvidence: Record<string, Record<string, any[]>> | undefined;
+      if (t.draft_id) {
+        try {
+          const rd = await fetch(
+            `${API_URL}/v1/account/draft/${t.draft_id}`,
+            { headers: { Authorization: `Bearer ${apiKey}` } },
+          );
+          if (rd.ok) {
+            const d = await rd.json();
+            const map: Record<string, Record<string, any[]>> = {};
+            for (const [branchId, blob] of Object.entries(
+              (d.leaves_by_branch || {}) as Record<string, any>,
+            )) {
+              const enrichedList = Array.isArray(blob?.enriched) ? blob.enriched : [];
+              map[branchId] = {};
+              for (const e of enrichedList) {
+                if (e?.leaf_id && Array.isArray(e?.evidence)) {
+                  map[branchId][e.leaf_id] = e.evidence;
+                }
+              }
+            }
+            draftEvidence = map;
+          }
+        } catch {}
+      }
+      setData(normalizeTreePayload(t, draftEvidence));
+    } catch (e: any) {
+      setError(`Failed to load tree (${e?.message || "unknown"})`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey, tree_id]);
 
   return (
@@ -108,8 +156,22 @@ export default function TreePage({
               tree_id: {tree_id}
             </p>
           </header>
+          {draftId && (
+            <div className="mb-5 text-xs text-muted bg-paper border border-line rounded px-3 py-2">
+              You can refresh or add evidence on any leaf below. Edits attach
+              to the source draft, so the next time you re-commit this tree
+              the new evidence will be baked in.
+            </div>
+          )}
           <ErrorBoundary label="Tree viewer">
-            <FrameworkView data={data} />
+            <FrameworkView
+              data={data}
+              draftId={draftId || undefined}
+              editable={!!draftId}
+              apiUrl={API_URL}
+              apiKey={apiKey || undefined}
+              onChanged={() => loadAll()}
+            />
           </ErrorBoundary>
         </>
       )}
