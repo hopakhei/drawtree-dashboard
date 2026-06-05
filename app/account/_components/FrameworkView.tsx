@@ -14,7 +14,14 @@ export type Branch = {
   caption?: string;
   label?: string;
   core_question?: string;
-  framework?: { name?: string; from?: string; to?: string };
+  framework?: {
+    name?: string;
+    primary?: string;
+    supporting?: string[];
+    rationale?: string;
+    from?: string;
+    to?: string;
+  };
   weight?: number;
   order?: number;
   leaves?: Leaf[]; // present on committed-tree payload, not on draft branches block
@@ -631,9 +638,21 @@ function BranchSection({
           {branch.core_question && (
             <div className="text-xs text-muted mt-0.5">{branch.core_question}</div>
           )}
-          {branch.framework?.name && (
+          {(branch.framework?.primary || branch.framework?.name) && (
             <div className="text-[11px] text-muted mt-0.5">
-              Framework: <code>{branch.framework.name}</code>
+              Framework:{" "}
+              <code>{branch.framework.primary || branch.framework.name}</code>
+              {Array.isArray(branch.framework.supporting) &&
+                branch.framework.supporting.length > 0 && (
+                  <>
+                    {" + "}
+                    {branch.framework.supporting.map((s: string, i: number) => (
+                      <code key={s} className="ml-0.5">
+                        {i > 0 ? ", " : ""}{s}
+                      </code>
+                    ))}
+                  </>
+                )}
             </div>
           )}
           {branchSummary.length > 0 && (
