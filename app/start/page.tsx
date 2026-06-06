@@ -47,7 +47,15 @@ If Create, follow Phase 1 below. If View, follow View flow at the end.
   frame_narrative → present narrative archaeology → confirm → save_narrative
   frame_h0 → present H-0 sentence + framework_from/to + time window
            → confirm → save_h0
-  design_branches → walk through 3-4 MECE branches with their frameworks
+  design_branches → read the lean 164-framework one-liner index + top-15
+                    scored shortlist
+                  → fetch_framework_details(draft_id,
+                       names=[...6-12 candidate frameworks...])
+                    in a SINGLE batched call to load each candidate's
+                    full common_pitfalls + diagnostic_axes (free, no
+                    rate limit, no stage advance)
+                  → walk the user through 3-4 MECE branches with their
+                    frameworks
                   → confirm → save_branches
   design_leaves(branch_id='A') → render Branch A's framework + diagnostic
                                   axes, ask user to confirm the axes
@@ -281,7 +289,7 @@ export default function Start() {
               <li><code>start_draft</code></li>
               <li><code>frame_narrative</code> / <code>save_narrative</code></li>
               <li><code>frame_h0</code> / <code>save_h0</code></li>
-              <li><code>design_branches</code> / <code>save_branches</code></li>
+              <li><code>design_branches</code> / <code>fetch_framework_details</code> / <code>save_branches</code></li>
               <li><code>design_leaves</code> / <code>save_leaves</code></li>
               <li><code>design_scenarios</code> / <code>save_scenarios</code></li>
               <li><code>preview_tree</code></li>
