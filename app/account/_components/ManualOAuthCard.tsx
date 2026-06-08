@@ -15,14 +15,24 @@ import { useCallback, useEffect, useState } from "react";
 
 const API_URL = "https://drawtree-api.onrender.com";
 
-// Known redirect URIs for the four MCP clients that may require a
-// manual paste. Pre-registering all of them on every new client means
-// the same client_id works whether the user later switches between
-// Perplexity and Claude.ai or back, without having to re-mint.
+// Known redirect URIs for every MCP client that may require a manual
+// paste. Pre-registering all of them on every new client means the
+// same client_id works whether the user later switches between
+// Perplexity, Claude.ai, ChatGPT etc. without having to re-mint.
+//
+// Perplexity uses TWO different callback paths depending on the build
+// (/oauth/callback for the old flow, /rest/connections/oauth_callback
+// for the current 2026-06 flow). Include both so we're forward and
+// backward compatible.
 const PRE_REGISTERED_URIS: string[] = [
+  // Perplexity
   "https://www.perplexity.ai/oauth/callback",
   "https://perplexity.ai/oauth/callback",
+  "https://www.perplexity.ai/rest/connections/oauth_callback",
+  "https://perplexity.ai/rest/connections/oauth_callback",
+  // Claude
   "https://claude.ai/api/mcp/auth_callback",
+  // ChatGPT
   "https://chatgpt.com/oauth/callback",
   "https://chat.openai.com/oauth/callback",
 ];
