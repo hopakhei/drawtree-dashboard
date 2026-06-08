@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import InstallMcpCard from "./_components/InstallMcpCard";
+import ManualOAuthCard from "./_components/ManualOAuthCard";
 
 const API_URL = "https://drawtree-api.onrender.com";
 const MCP_URL = "https://drawtree-mcp.onrender.com/mcp";
@@ -589,6 +590,11 @@ export default function Account() {
               every signed-in user sees it. Skipped on the rare case where
               we somehow don't have the key in state. */}
           {apiKey && <InstallMcpCard apiKey={apiKey} />}
+
+          {/* Manual OAuth credentials — collapsed by default, only needed
+              by AI clients that refuse automatic Dynamic Client
+              Registration (Perplexity today). */}
+          {apiKey && <ManualOAuthCard apiKey={apiKey} />}
 
           {workspace && (
             <section className="mt-6 border border-line rounded p-6">

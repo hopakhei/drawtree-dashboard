@@ -63,13 +63,17 @@ bearer_token_env_var = "DRAWTREE_API_KEY"`;
   }
 }`;
     case "perplexity":
-      return `Settings → Connectors → + Custom connector → Remote
+      return `Settings → Connectors → + Custom connector
 
   Name:           Drawtree
   MCP server URL: ${MCP_URL}
   Transport:      Streamable HTTP
-  Auth type:      API Key
-  API key:        ${key}`;
+  Authentication: OAuth
+
+  Client ID:      (generate below in 'Manual OAuth credentials')
+  Client Secret:  none-required  (placeholder — PKCE, no real secret)
+
+  Tick 'I understand custom connectors can introduce risks' → Add`;
   }
 }
 
@@ -84,7 +88,7 @@ function nextStepFor(client: ClientKey): string {
     case "claude_desktop":
       return "Save the file and restart Claude Desktop. The drawtree icon will appear in the message bar.";
     case "perplexity":
-      return "Paste the URL, pick Streamable HTTP, paste your key under API Key. The connector appears in your sidebar.";
+      return "Open the 'Manual OAuth credentials' card below this one to generate your Client ID. Perplexity opens drawtree.capital in a popup so you can sign in and approve.";
   }
 }
 
