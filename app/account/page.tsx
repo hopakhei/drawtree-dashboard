@@ -271,7 +271,7 @@ export default function Account() {
     }
   }
 
-  async function startTopup(preset: "5" | "20" | "50" | "100") {
+  async function startTopup(preset: "5" | "10" | "50" | "100" | "500") {
     if (!apiKey) return;
     const r = await fetch(`${API_URL}/v1/account/topup_checkout`, {
       method: "POST",
@@ -545,15 +545,18 @@ export default function Account() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              {(["5", "20", "50", "100"] as const).map((p) => (
+              {(["5", "10", "50", "100", "500"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => startTopup(p)}
                   className="px-3 py-2 text-sm border border-line rounded hover:bg-line/40"
                 >
-                  + ${p} ({Number(p) * 8} credits)
+                  + ${p} ({Number(p) * 10} credits)
                 </button>
               ))}
+            </div>
+            <div className="text-[11px] text-muted mt-2">
+              $1 USD = 10 credits.
             </div>
           </section>
 

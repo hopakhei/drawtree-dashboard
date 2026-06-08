@@ -145,9 +145,10 @@ export default function Start() {
         <h1 className="text-3xl tracking-tight mt-3">Start in 3 minutes</h1>
         <p className="text-muted mt-2 text-sm leading-relaxed max-w-xl">
           Connect Draw Tree to any AI client that speaks Remote MCP. New
-          accounts get <strong>30 free credits</strong>. Framework design
-          in Phase 1 is free; Phase 2 charges a single flat bundle covering
-          research, scenarios, and publication.
+          accounts get <strong>50 free credits</strong> — enough to publish
+          your first tree end-to-end. Framework design in Phase 1 is free;
+          Phase 2 charges a single flat 50-credit bundle covering research,
+          scenarios, and publication.
         </p>
       </header>
 
@@ -155,7 +156,7 @@ export default function Start() {
       <section className="mb-8 border border-line rounded p-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg">1 · Get an API key</h2>
-          <span className="text-xs text-muted">free · 30 credits on signup</span>
+          <span className="text-xs text-muted">free · 50 credits on signup</span>
         </div>
         <p className="text-sm text-muted mb-4">
           Sign up to receive your <code>dt_xxxx</code> API key and your
@@ -276,9 +277,9 @@ export default function Start() {
           Phase 1 (framework design) is always free. Phase 2 charges{" "}
           <strong>one flat 50-credit bundle</strong> at{" "}
           <code>confirm_framework</code> covering everything that follows —
-          deep research, scenarios, and publication. New accounts get 30 free
-          credits; top up at <code>/account</code> when you're ready to
-          publish your first tree.
+          deep research, scenarios, and publication. $1 USD = 10 credits.
+          New accounts get 50 free credits; top up at <code>/account</code>
+          if you want monitoring or a second tree.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
           <div>
@@ -336,8 +337,9 @@ export default function Start() {
         <div className="mt-5 pt-4 border-t border-line text-xs text-muted">
           <strong>Typical first tree:</strong> 50 credits flat (Phase 2 bundle)
           + 5 credits for the first week of monitoring = 55 credits. New
-          accounts start with 30 free credits; top up once for your first
-          published tree.
+          accounts start with 50 free credits — enough to publish the tree
+          itself for free; top up $5 (50 credits) to add a month of
+          monitoring.
         </div>
       </section>
 

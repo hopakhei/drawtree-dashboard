@@ -140,8 +140,8 @@ export default function Signup() {
       <h1 className="text-3xl tracking-tight mt-3">Sign up</h1>
       <p className="text-muted text-sm mt-2 leading-relaxed">
         Get your API key in under a minute. First-time email signups start
-        with <strong>30 free credits</strong> — enough to try out the
-        framework design flow.
+        with <strong>50 free credits</strong> — enough to publish your first
+        tree end-to-end (Phase 2 bundle costs exactly 50 credits).
       </p>
 
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
