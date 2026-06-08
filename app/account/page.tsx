@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import InstallMcpCard from "./_components/InstallMcpCard";
 
 const API_URL = "https://drawtree-api.onrender.com";
 const MCP_URL = "https://drawtree-mcp.onrender.com/mcp";
@@ -559,6 +560,11 @@ export default function Account() {
               $1 USD = 10 credits.
             </div>
           </section>
+
+          {/* Install MCP card — prominently placed right after balance so
+              every signed-in user sees it. Skipped on the rare case where
+              we somehow don't have the key in state. */}
+          {apiKey && <InstallMcpCard apiKey={apiKey} />}
 
           {workspace && (
             <section className="mt-6 border border-line rounded p-6">
