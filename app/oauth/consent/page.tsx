@@ -17,9 +17,27 @@
 // are minted server-side and travel via redirect back to the MCP
 // client. The user's MCP API key (dt_) is never touched.
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+
+// Next.js 14 requires useSearchParams() consumers to be wrapped in a
+// Suspense boundary so static-prerender doesn't blow up. We split the
+// component into an inner client component (uses the hook) plus a
+// default export that wraps it in Suspense.
+export default function ConsentPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="max-w-md mx-auto px-6 py-14">
+          <p className="text-sm text-muted">Loading authorization request…</p>
+        </main>
+      }
+    >
+      <ConsentInner />
+    </Suspense>
+  );
+}
 
 const API_URL = "https://drawtree-api.onrender.com";
 
@@ -41,7 +59,7 @@ const SCOPE_DESCRIPTIONS: Record<string, { label: string; tagline: string }> = {
   },
 };
 
-export default function ConsentPage() {
+function ConsentInner() {
   const qs = useSearchParams();
   const clientId       = qs.get("client_id")             || "";
   const clientName     = qs.get("client_name")           || "An MCP client";
