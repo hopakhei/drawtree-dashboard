@@ -106,6 +106,14 @@ export default function Account() {
             sessionStorage.setItem("drawtree_api_key", tok);
           } catch {}
           setSignInState("idle");
+          // OAuth handoff: if the user originally landed on /oauth/consent
+          // and got bounced here to sign in, send them back to that page
+          // so the consent flow can complete.
+          const next = qs.get("next");
+          if (next && next.startsWith("https://drawtree.capital/")) {
+            window.location.href = next;
+            return;
+          }
           window.history.replaceState({}, "", "/account");
         })
         .catch((e) => {
@@ -130,6 +138,13 @@ export default function Account() {
       try {
         sessionStorage.setItem("drawtree_api_key", fromQs);
       } catch {}
+      // Honor ?next= here too (rare — user pasted their api_key into
+      // the URL bar with a next param).
+      const next = qs.get("next");
+      if (next && next.startsWith("https://drawtree.capital/")) {
+        window.location.href = next;
+        return;
+      }
       window.history.replaceState({}, "", "/account");
       return;
     }
@@ -137,7 +152,16 @@ export default function Account() {
     // Restore session from sessionStorage (Stripe redirect, refresh).
     try {
       const saved = sessionStorage.getItem("drawtree_api_key");
-      if (saved) setApiKey(saved);
+      if (saved) {
+        setApiKey(saved);
+        // If we restored a session AND the URL carries ?next=, send
+        // them straight on to the deep-linked target.
+        const next = qs.get("next");
+        if (next && next.startsWith("https://drawtree.capital/")) {
+          window.location.href = next;
+          return;
+        }
+      }
     } catch {}
 
     // Top-up return banner. Webhook usually credits within 3-10s.
