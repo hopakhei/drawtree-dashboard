@@ -10,9 +10,15 @@ import { useState } from "react";
 
 const MCP_URL = "https://drawtree-mcp.onrender.com/mcp";
 
-type ClientKey = "claude_code" | "codex" | "claude_desktop" | "perplexity";
+type ClientKey =
+  | "chatgpt"
+  | "claude_code"
+  | "codex"
+  | "claude_desktop"
+  | "perplexity";
 
 const CLIENTS: { key: ClientKey; label: string; tagline: string }[] = [
+  { key: "chatgpt",        label: "ChatGPT",        tagline: "Web · OAuth (1 click)" },
   { key: "claude_code",    label: "Claude Code",    tagline: "Terminal · 1 command" },
   { key: "codex",          label: "Codex CLI",      tagline: "Terminal · 1 command" },
   { key: "claude_desktop", label: "Claude Desktop", tagline: "JSON config" },
@@ -21,6 +27,16 @@ const CLIENTS: { key: ClientKey; label: string; tagline: string }[] = [
 
 function snippetFor(client: ClientKey, key: string): string {
   switch (client) {
+    case "chatgpt":
+      return `Settings → Connectors → + Create connector
+
+  Name:             Drawtree
+  Server URL:       https://drawtree-mcp.onrender.com/mcp
+  Authentication:   OAuth (auto-detected — ChatGPT will redirect you to
+                    drawtree.capital to sign in and approve)
+
+  ✓ I trust this application
+  → Click Create`;
     case "claude_code":
       return `claude mcp add drawtree \\
   --transport http \\
@@ -59,6 +75,8 @@ bearer_token_env_var = "DRAWTREE_API_KEY"`;
 
 function nextStepFor(client: ClientKey): string {
   switch (client) {
+    case "chatgpt":
+      return "ChatGPT will open a browser tab to drawtree.capital — sign in with your email (magic link) and click Approve. ChatGPT Plus / Pro / Team / Enterprise / Edu only; you must first enable Developer Mode in Settings → Connectors → Advanced.";
     case "claude_code":
       return "Paste the command in your terminal. Claude Code writes the config for you. Restart Claude Code, then ask: \"List my drawtree tools.\"";
     case "codex":
@@ -77,7 +95,9 @@ export default function InstallMcpCard({
   // after auth.
   apiKey: string;
 }) {
-  const [active, setActive] = useState<ClientKey>("claude_code");
+  // Default to ChatGPT — it's the biggest user segment and now ships with
+  // a real one-click OAuth install. CLI users will pick their own tab.
+  const [active, setActive] = useState<ClientKey>("chatgpt");
   const [copied, setCopied] = useState(false);
   const snippet = snippetFor(active, apiKey);
   const nextStep = nextStepFor(active);
@@ -146,11 +166,11 @@ export default function InstallMcpCard({
         <strong className="text-ink">Next:</strong> {nextStep}
       </div>
 
-      {/* ChatGPT placeholder — Phase 2 will replace this with a real install button */}
+      {/* Footer hint — OAuth is now live for ChatGPT/Claude.ai web */}
       <div className="mt-4 text-[11px] text-muted border-t border-line pt-3">
-        Using <strong>ChatGPT</strong> or <strong>Claude.ai web</strong>?
-        One-click OAuth install is coming next week. They require a sign-in
-        flow that&apos;s still being built.
+        Pick <strong>ChatGPT</strong> if you&apos;re on the web. The CLI tabs
+        use your API key directly; the web tabs use a signed-in OAuth flow
+        so your key never leaves drawtree.capital.
       </div>
     </section>
   );
