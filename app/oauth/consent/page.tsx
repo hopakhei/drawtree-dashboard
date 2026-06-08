@@ -88,20 +88,27 @@ function ConsentInner() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Init: read session token, default ALL requested scopes to granted.
+  // Inline sign-in state. We keep the user ON THIS PAGE (rather than
+  // bouncing them to /account) so the consent query string survives
+  // the magic-link round trip. The user types a 6-digit code from
+  // the email and lands back on the approve step.
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInCode,  setSignInCode]  = useState("");
+  const [signInStage, setSignInStage] = useState<"email" | "code">("email");
+  const [signInBusy,  setSignInBusy]  = useState(false);
+  const [signInErr,   setSignInErr]   = useState<string | null>(null);
+  const [signInChecked, setSignInChecked] = useState(false);
+
+  // Init: read session token (skip the bounce — we now render an
+  // inline sign-in form below if there's no session).
   useEffect(() => {
     try {
       const k = sessionStorage.getItem("drawtree_api_key");
       if (k && k.startsWith("dts_")) {
         setApiKey(k);
-      } else {
-        // No session — bounce to sign-in. We preserve the full consent
-        // URL so /account can redirect back here once signed in.
-        const back = encodeURIComponent(window.location.href);
-        window.location.href = `/account?next=${back}`;
-        return;
       }
     } catch {}
+    setSignInChecked(true);
     const defaults: Record<string, boolean> = {};
     for (const s of requestedScopes) defaults[s] = true;
     setGranted(defaults);
@@ -174,6 +181,80 @@ function ConsentInner() {
     }
   }
 
+  async function requestCode() {
+    if (!signInEmail.includes("@")) {
+      setSignInErr("Please enter a valid email.");
+      return;
+    }
+    setSignInBusy(true);
+    setSignInErr(null);
+    try {
+      const r = await fetch(`${API_URL}/v1/account/request_login_link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: signInEmail.trim().toLowerCase() }),
+      });
+      const body = await r.json();
+      if (body?.unknown_email) {
+        setSignInErr(
+          "That email isn't registered. Sign up at drawtree.capital/signup first.",
+        );
+        setSignInBusy(false);
+        return;
+      }
+      // Move to the code-entry stage even on transient send failures —
+      // the user can hit 'resend' from there.
+      setSignInStage("code");
+    } catch (e: any) {
+      setSignInErr(e?.message || "Network error sending code.");
+    }
+    setSignInBusy(false);
+  }
+
+  async function verifyCode() {
+    const cleaned = signInCode.replace(/\D/g, "");
+    if (cleaned.length !== 6) {
+      setSignInErr("The code is 6 digits.");
+      return;
+    }
+    setSignInBusy(true);
+    setSignInErr(null);
+    try {
+      const r = await fetch(`${API_URL}/v1/account/verify_login_code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: signInEmail.trim().toLowerCase(),
+          code:  cleaned,
+        }),
+      });
+      const body = await r.json();
+      if (!r.ok) {
+        const c = body?.detail?.code || "";
+        const msg =
+          c === "INVALID_CODE"        ? "That code doesn't match. Double-check the latest email." :
+          c === "CODE_ALREADY_USED"   ? "That code was already used. Request a new one." :
+          c === "CODE_EXPIRED"        ? "That code has expired. Request a new one." :
+          c === "INVALID_CODE_FORMAT" ? "The code must be 6 digits." :
+          `Sign-in failed (${r.status}).`;
+        setSignInErr(msg);
+        setSignInBusy(false);
+        return;
+      }
+      // Persist the dts_ session and switch into the consent UI.
+      const tok = body.session_token;
+      try {
+        sessionStorage.setItem("drawtree_api_key", tok);
+      } catch {}
+      setApiKey(tok);
+      setAgentEmail(body.email);
+      setSignInBusy(false);
+    } catch (e: any) {
+      setSignInErr(e?.message || "Network error verifying code.");
+      setSignInBusy(false);
+    }
+  }
+
   function deny() {
     if (!redirectUri) return;
     const sep = redirectUri.includes("?") ? "&" : "?";
@@ -203,11 +284,127 @@ function ConsentInner() {
     );
   }
 
-  // Still loading session.
-  if (!apiKey) {
+  // Pre-init: still checking sessionStorage for an existing dts_ token.
+  if (!signInChecked) {
     return (
       <main className="max-w-md mx-auto px-6 py-14">
         <p className="text-sm text-muted">Checking sign-in…</p>
+      </main>
+    );
+  }
+
+  // No session — render the inline email-code sign-in form. Critically,
+  // we DO NOT leave this page: doing so would lose the OAuth query
+  // string and break the consent flow.
+  if (!apiKey) {
+    return (
+      <main className="max-w-md mx-auto px-6 py-12">
+        <Link
+          href="/account"
+          className="text-xs text-muted underline-offset-4 hover:underline"
+        >
+          ← My account
+        </Link>
+
+        <div className="mt-6 border border-line rounded p-6">
+          <div className="text-xs uppercase tracking-wider text-muted">
+            Authorize connection
+          </div>
+          <div className="text-lg font-medium mt-1">
+            Sign in to approve {clientName}
+          </div>
+          <p className="text-xs text-muted mt-2">
+            We&apos;ll email you a 6-digit code. Type it here so you
+            don&apos;t lose this approval page.
+          </p>
+
+          {signInStage === "email" ? (
+            <div className="mt-5 space-y-3">
+              <label className="block">
+                <span className="text-xs text-muted">Email</span>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoFocus
+                  value={signInEmail}
+                  onChange={(e) => setSignInEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !signInBusy) requestCode();
+                  }}
+                  placeholder="you@example.com"
+                  className="w-full mt-1 px-3 py-2 text-sm border border-line rounded focus:outline-none focus:border-ink"
+                />
+              </label>
+              <button
+                onClick={requestCode}
+                disabled={signInBusy || !signInEmail}
+                className="w-full px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
+              >
+                {signInBusy ? "Sending…" : "Email me a 6-digit code"}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              <div className="text-xs text-muted">
+                Code sent to <strong className="text-ink">{signInEmail}</strong>.
+                Check your inbox (and spam) for a 6-digit code.
+              </div>
+              <label className="block">
+                <span className="text-xs text-muted">6-digit code</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  maxLength={11}
+                  value={signInCode}
+                  onChange={(e) => setSignInCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !signInBusy) verifyCode();
+                  }}
+                  placeholder="123 456"
+                  className="w-full mt-1 px-3 py-2 text-lg font-mono tracking-widest text-center border border-line rounded focus:outline-none focus:border-ink"
+                />
+              </label>
+              <button
+                onClick={verifyCode}
+                disabled={signInBusy || signInCode.replace(/\D/g, "").length !== 6}
+                className="w-full px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
+              >
+                {signInBusy ? "Verifying…" : "Sign in & continue"}
+              </button>
+              <div className="flex items-center justify-between text-[11px] text-muted">
+                <button
+                  onClick={() => {
+                    setSignInStage("email");
+                    setSignInCode("");
+                    setSignInErr(null);
+                  }}
+                  className="underline-offset-4 hover:underline"
+                  disabled={signInBusy}
+                >
+                  ← Change email
+                </button>
+                <button
+                  onClick={() => {
+                    setSignInCode("");
+                    requestCode();
+                  }}
+                  className="underline-offset-4 hover:underline"
+                  disabled={signInBusy}
+                >
+                  Resend code
+                </button>
+              </div>
+            </div>
+          )}
+
+          {signInErr && (
+            <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+              {signInErr}
+            </div>
+          )}
+        </div>
       </main>
     );
   }
