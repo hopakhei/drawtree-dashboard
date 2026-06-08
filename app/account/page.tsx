@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import InstallMcpCard from "./_components/InstallMcpCard";
-import ManualOAuthCard from "./_components/ManualOAuthCard";
+
 
 const API_URL = "https://drawtree-api.onrender.com";
 const MCP_URL = "https://drawtree-mcp.onrender.com/mcp";
@@ -586,15 +585,30 @@ export default function Account() {
             </div>
           </section>
 
-          {/* Install MCP card — prominently placed right after balance so
-              every signed-in user sees it. Skipped on the rare case where
-              we somehow don't have the key in state. */}
-          {apiKey && <InstallMcpCard apiKey={apiKey} />}
-
-          {/* Manual OAuth credentials — collapsed by default, only needed
-              by AI clients that refuse automatic Dynamic Client
-              Registration (Perplexity today). */}
-          {apiKey && <ManualOAuthCard apiKey={apiKey} />}
+          {/* Setup guide link — the install cards previously lived here
+              and on /start, which confused users about which page was
+              the source of truth. /start is now the single setup page;
+              account is purely about your existing connection. */}
+          {apiKey && (
+            <section className="mt-6 border border-line rounded p-6">
+              <div className="flex items-baseline justify-between gap-3">
+                <div>
+                  <h2 className="text-lg">Connect Draw Tree to your AI</h2>
+                  <p className="text-xs text-muted mt-1">
+                    Install the MCP server in ChatGPT, Claude.ai, Perplexity,
+                    Claude Code, Codex, or Claude Desktop. The setup guide
+                    walks through it step by step.
+                  </p>
+                </div>
+                <Link
+                  href="/start"
+                  className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 transition shrink-0"
+                >
+                  Open setup guide →
+                </Link>
+              </div>
+            </section>
+          )}
 
           {workspace && (
             <section className="mt-6 border border-line rounded p-6">

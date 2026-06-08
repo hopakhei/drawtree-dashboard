@@ -42,6 +42,15 @@ export default function Signup() {
         }
       } else {
         setResult(body);
+        // Persist the API key on this device so /start's API-key panel
+        // is pre-filled the moment the user clicks 'Continue to setup'.
+        // Bypasses the 'check your email for the key' step for the very
+        // first session right after signup.
+        try {
+          if (body?.api_key) {
+            localStorage.setItem("drawtree_cli_api_key", body.api_key);
+          }
+        } catch {}
       }
     } catch (e: any) {
       setError(e?.message || "Network error");
@@ -108,18 +117,18 @@ export default function Signup() {
           </p>
         </section>
 
-        <div className="mt-8 flex gap-3">
-          <Link
-            href={`/account?api_key=${encodeURIComponent(result.api_key)}`}
-            className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
-          >
-            Go to my account →
-          </Link>
+        <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/start"
+            className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
+          >
+            Continue to setup guide →
+          </Link>
+          <Link
+            href={`/account?api_key=${encodeURIComponent(result.api_key)}`}
             className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
           >
-            Setup details
+            Open my account
           </Link>
         </div>
 

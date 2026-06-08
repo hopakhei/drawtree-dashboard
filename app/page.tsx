@@ -11,7 +11,7 @@ export default async function Home() {
           Every investment thesis as a tree. Every claim has a kill condition. Every verdict
           is signed, timestamped, and disputable. The wire protocol for AI-native equity research.
         </p>
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href="/signup"
             className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
@@ -19,16 +19,16 @@ export default async function Home() {
             Sign up free
           </Link>
           <Link
+            href="/start"
+            className="px-4 py-2 text-sm bg-ink/10 border border-ink rounded hover:bg-ink/20"
+          >
+            Setup guide →
+          </Link>
+          <Link
             href="/account"
             className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
           >
             My account
-          </Link>
-          <Link
-            href="/start"
-            className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
-          >
-            Setup guide
           </Link>
         </div>
         <div className="mt-4 flex gap-4 text-xs text-muted">
