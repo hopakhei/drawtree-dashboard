@@ -26,7 +26,14 @@ function normalizeTreePayload(t: TreeResponse, draftEvidence?: Record<string, Re
     visibility: t.visibility,
     committed_at: t.committed_at,
     h0: p.h0
-      ? { text: typeof p.h0 === "string" ? p.h0 : p.h0.text, metadata: p.h0.metadata }
+      ? {
+          text: typeof p.h0 === "string" ? p.h0 : p.h0.text,
+          metadata: p.h0.metadata,
+          // Pass through the conviction pack written by
+          // compute_root_conviction so FrameworkView can render the
+          // root-level badge under H-0.
+          conviction: typeof p.h0 === "object" ? p.h0.conviction : undefined,
+        }
       : p.root_hypothesis
       ? { text: p.root_hypothesis }
       : null,
@@ -46,6 +53,138 @@ function normalizeTreePayload(t: TreeResponse, draftEvidence?: Record<string, Re
   };
 }
 
+// Monitoring cadence editor card. Reads current value from
+// /v1/account/draft/{draft_id} (which exposes `monitoring_cadence`),
+// posts changes to /v1/drafts/set_phase2_notification which is the
+// canonical write path for cc_emails + cadence.
+function MonitorCadenceCard({
+  apiUrl,
+  apiKey,
+  draftId,
+  initialCadence,
+  initialCcEmails,
+  onSaved,
+}: {
+  apiUrl: string;
+  apiKey: string;
+  draftId: string;
+  initialCadence: string;
+  initialCcEmails: string[];
+  onSaved?: () => void;
+}) {
+  const [cadence, setCadence] = useState(initialCadence || "none");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Re-sync local state if the parent reloads with a new value.
+  useEffect(() => {
+    setCadence(initialCadence || "none");
+  }, [initialCadence]);
+
+  const cadenceLabel: Record<string, string> = {
+    daily: "Daily · 09:00 HKT",
+    weekly: "Weekly · Saturday 09:00 HKT",
+    none: "Off",
+  };
+  const cadenceCost: Record<string, string> = {
+    daily: "~5 credits/run × ~22 runs/month",
+    weekly: "~5 credits/run × ~4 runs/month",
+    none: "No automated runs",
+  };
+
+  async function save(next: string) {
+    setSaving(true);
+    setErr(null);
+    try {
+      const r = await fetch(`${apiUrl}/v1/drafts/set_phase2_notification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          draft_id: draftId,
+          cc_emails: initialCcEmails,  // preserve existing CC list
+          monitoring_cadence: next,
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error(`${r.status}: ${txt.slice(0, 200)}`);
+      }
+      setCadence(next);
+      setEditing(false);
+      onSaved?.();
+    } catch (e: any) {
+      setErr(e?.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mb-5 border border-line rounded p-4 bg-paper/40">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-xs uppercase tracking-wider text-muted">
+          Monitoring frequency
+        </div>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-xs text-muted hover:underline"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+      {!editing ? (
+        <div className="mt-1">
+          <div className="text-sm">{cadenceLabel[cadence] || cadence}</div>
+          <div className="text-[11px] text-muted mt-0.5">{cadenceCost[cadence] || ""}</div>
+        </div>
+      ) : (
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {["daily", "weekly", "none"].map((opt) => (
+              <button
+                key={opt}
+                disabled={saving}
+                onClick={() => save(opt)}
+                className={`text-xs px-3 py-1.5 rounded border transition ${
+                  cadence === opt
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-line text-muted hover:bg-line/30"
+                }`}
+              >
+                {cadenceLabel[opt]}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setEditing(false);
+                setErr(null);
+              }}
+              className="text-xs text-muted hover:underline"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            {saving && <span className="text-xs text-muted">Saving…</span>}
+          </div>
+          {err && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+              {err}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TreePage({
   params,
 }: {
@@ -55,6 +194,8 @@ export default function TreePage({
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [data, setData] = useState<FrameworkData | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [cadence, setCadence] = useState<string>("none");
+  const [ccEmails, setCcEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,6 +234,15 @@ export default function TreePage({
           );
           if (rd.ok) {
             const d = await rd.json();
+            // Pick up monitoring preferences so the cadence card has
+            // the current value to display and CC list to preserve on
+            // save.
+            if (typeof d.monitoring_cadence === "string") {
+              setCadence(d.monitoring_cadence);
+            }
+            if (Array.isArray(d.cc_emails)) {
+              setCcEmails(d.cc_emails);
+            }
             const map: Record<string, Record<string, any[]>> = {};
             for (const [branchId, blob] of Object.entries(
               (d.leaves_by_branch || {}) as Record<string, any>,
@@ -156,6 +306,16 @@ export default function TreePage({
               tree_id: {tree_id}
             </p>
           </header>
+          {draftId && apiKey && (
+            <MonitorCadenceCard
+              apiUrl={API_URL}
+              apiKey={apiKey}
+              draftId={draftId}
+              initialCadence={cadence}
+              initialCcEmails={ccEmails}
+              onSaved={loadAll}
+            />
+          )}
           {draftId && (
             <div className="mb-5 text-xs text-muted bg-paper border border-line rounded px-3 py-2">
               You can refresh or add evidence on any leaf below. Edits attach

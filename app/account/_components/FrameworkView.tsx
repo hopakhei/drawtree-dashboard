@@ -9,6 +9,18 @@ import { useState } from "react";
 // Every block is optional — early-stage drafts will only have narrative
 // + H-0, while committed trees will have all five.
 
+// Conviction pack written by the API's compute_root_conviction / per-branch
+// helper. Both the root (h0.conviction) and each branch (branch.conviction)
+// carry the same shape, with optional label_zh + badge for localized display.
+export type ConvictionPack = {
+  score?: number;            // [0, 1]
+  label?: string;            // e.g. "High conviction"
+  label_zh?: string;         // e.g. "高信心"
+  badge?: string;            // emoji glyph, e.g. "🔥"
+  weight?: number;           // branch weight (only on branch pack)
+  // gain / expected fields only live on the root pack via scenarios.expected
+};
+
 export type Branch = {
   id: string;
   caption?: string;
@@ -25,6 +37,7 @@ export type Branch = {
   weight?: number;
   order?: number;
   leaves?: Leaf[]; // present on committed-tree payload, not on draft branches block
+  conviction?: ConvictionPack;
 };
 
 export type Leaf = {
@@ -53,6 +66,19 @@ export type Scenarios = {
   // skeleton (post design_scenarios)
   peer_tiers?: any;
   method?: string;
+  // Conviction-weighted expected price (set by the conviction engine after
+  // every monitor run / commit). The dashboard surfaces this above the
+  // Bear/Base/Bull tiers so the reader sees the headline number.
+  expected?: {
+    score?: number;          // root conviction in [0, 1]
+    label?: string;
+    label_zh?: string;
+    badge?: string;
+    value?: number;          // expected $ price
+    gain_pct?: number;       // vs current_price
+    current_price?: number;
+    anchored_at?: { bear?: number | null; base?: number | null; bull?: number | null };
+  };
 };
 
 export type FrameworkData = {
@@ -72,6 +98,7 @@ export type FrameworkData = {
   h0?: {
     text?: string;
     metadata?: { framework_from?: string; framework_to?: string; time_window?: string };
+    conviction?: ConvictionPack;
   } | null;
 
   branches?: Branch[];
@@ -125,6 +152,43 @@ function extractVerdictString(verdict: any): string {
     );
   }
   return "";
+}
+
+// Map a conviction score [0,1] to a Tailwind palette mirroring the badge
+// tones used by the API helper (_conviction.score_to_label).
+function convictionTone(score?: number): string {
+  if (typeof score !== "number") return "text-muted bg-paper border-line";
+  if (score >= 0.75) return "text-emerald-700 bg-emerald-50 border-emerald-200";
+  if (score >= 0.55) return "text-emerald-600 bg-emerald-50/60 border-emerald-200";
+  if (score >= 0.45) return "text-muted bg-paper border-line";
+  if (score >= 0.25) return "text-orange-700 bg-orange-50 border-orange-200";
+  return "text-red-700 bg-red-50 border-red-200";
+}
+
+function ConvictionBadge({
+  pack,
+  compact = false,
+}: {
+  pack?: ConvictionPack;
+  compact?: boolean;
+}) {
+  if (!pack || typeof pack.score !== "number") return null;
+  const tone = convictionTone(pack.score);
+  const pct = Math.round(pack.score * 100);
+  const glyph = pack.badge || "";
+  const label = pack.label || "Conviction";
+  if (compact) {
+    return (
+      <span className={`text-[11px] px-1.5 py-0.5 rounded border ${tone}`}>
+        {glyph} {pct}%
+      </span>
+    );
+  }
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded border ${tone}`}>
+      {glyph} {label} · {pct}%
+    </span>
+  );
 }
 
 function VerdictBadge({ verdict }: { verdict?: any }) {
@@ -655,8 +719,8 @@ function BranchSection({
                 )}
             </div>
           )}
-          {branchSummary.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
+          {(branchSummary.length > 0 || branch.conviction) && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
               {branchSummary.map((s) => (
                 <span
                   key={s.state}
@@ -667,6 +731,12 @@ function BranchSection({
                   {s.icon} {s.count}
                 </span>
               ))}
+              {branch.conviction && <ConvictionBadge pack={branch.conviction} compact />}
+              {typeof branch.weight === "number" && (
+                <span className="text-[11px] px-1.5 py-0.5 rounded border text-muted border-line">
+                  weight {Math.round(branch.weight * 100)}%
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -721,8 +791,46 @@ function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
       </div>
     );
   }
+  // Conviction-weighted expected price block. Lives on scenarios.expected
+  // (written by compute_root_conviction → piecewise linear to bear/base/bull).
+  // We render it ABOVE the Bull/Base/Bear tiers so the reader's eye lands
+  // on the headline number first.
+  const expected = (safe.expected || null) as Scenarios["expected"];
   return (
     <div className="space-y-2">
+      {expected && typeof expected.value === "number" && (
+        <div className="border border-line rounded p-3 bg-paper/40">
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="text-sm">
+              <span className="mr-2">🎯</span>
+              <span className="font-medium">Expected (conviction-weighted)</span>
+              <span className="ml-2">${expected.value}</span>
+            </div>
+            {typeof expected.gain_pct === "number" && (
+              <span
+                className={`text-xs ${
+                  expected.gain_pct > 0
+                    ? "text-emerald-700"
+                    : expected.gain_pct < 0
+                    ? "text-red-700"
+                    : "text-muted"
+                }`}
+              >
+                {expected.gain_pct > 0 ? "+" : ""}
+                {expected.gain_pct.toFixed(1)}%
+              </span>
+            )}
+          </div>
+          {(expected.label || typeof expected.score === "number") && (
+            <div className="text-[11px] text-muted mt-1">
+              {expected.badge || ""} {expected.label || "Conviction"}
+              {typeof expected.score === "number" && (
+                <> · {Math.round(expected.score * 100)}% root conviction</>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {scenarios.current_price !== undefined && (
         <div className="text-xs text-muted mb-1">Current price: ${scenarios.current_price}</div>
       )}
@@ -825,9 +933,10 @@ export default function FrameworkView({
             )}
           </div>
         )}
-        {data.verdict && (
-          <div className="mt-3">
-            <VerdictBadge verdict={data.verdict} />
+        {(data.verdict || data.h0?.conviction) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {data.verdict && <VerdictBadge verdict={data.verdict} />}
+            {data.h0?.conviction && <ConvictionBadge pack={data.h0.conviction} />}
           </div>
         )}
       </section>
