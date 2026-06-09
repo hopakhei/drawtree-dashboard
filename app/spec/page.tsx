@@ -427,8 +427,8 @@ summarize_tree(tree_id)
         </p>
         <ul className="text-xs text-muted space-y-2 leading-relaxed list-disc list-inside">
           <li>
-            Pulls the past week&apos;s news with Tavily, deduplicated
-            and quality-filtered by source.
+            Pulls the past week&apos;s news from public sources,
+            deduplicated and quality-filtered by source.
           </li>
           <li>
             Attributes each article to specific branches and leaves it
@@ -565,9 +565,9 @@ summarize_tree(tree_id)
                                 ┌──────────────────────┼──────────────────────┐
                                 ▼                      ▼                      ▼
                        ┌────────────────┐    ┌──────────────────┐    ┌──────────────┐
-                       │ drawtree-      │    │ GitHub Actions   │    │ Tavily       │
-                       │ dashboard      │    │ weekly cron      │    │ + LLM judge  │
-                       │ (Next.js,      │    │ (one per tree)   │    │ (research)   │
+                       │ drawtree-      │    │ GitHub Actions   │    │ deep-research│
+                       │ dashboard      │    │ weekly cron      │    │ + verdict    │
+                       │ (Next.js,      │    │ (one per tree)   │    │ judge        │
                        │  drawtree.     │    └──────────────────┘    └──────────────┘
                        │  capital)      │
                        └────────────────┘`}

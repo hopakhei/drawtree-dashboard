@@ -46,7 +46,7 @@ export default async function Home() {
         <ul className="text-sm text-muted space-y-2 leading-relaxed list-disc list-inside">
           <li>An MCP server that co-designs falsifiable hypothesis trees with your favourite AI client (Perplexity, Claude Desktop, any Remote-MCP host).</li>
           <li>164 strategy frameworks indexed with canonical full-text — the AI grounds its leaf design in real source material, not generic questions.</li>
-          <li>Live Yahoo Finance + Tavily data fetch, three-scenario peer valuation, weekly cron monitoring with verdict alerts.</li>
+          <li>Live peer-price data fetch, three-scenario peer valuation, weekly cron monitoring with verdict alerts.</li>
           <li>50 free credits on signup — enough to publish your first tree end-to-end. No credit-card prompt. Trees you commit stay private to you.</li>
         </ul>
         <div className="mt-6 text-xs text-muted">
