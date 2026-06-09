@@ -42,15 +42,12 @@ export default function Signup() {
         }
       } else {
         setResult(body);
-        // Persist the API key on this device so /start's API-key panel
-        // is pre-filled the moment the user clicks 'Continue to setup'.
-        // Bypasses the 'check your email for the key' step for the very
-        // first session right after signup.
-        try {
-          if (body?.api_key) {
-            localStorage.setItem("drawtree_cli_api_key", body.api_key);
-          }
-        } catch {}
+        // SECURITY: do NOT write the api_key to localStorage. The
+        // key is the user's long-lived MCP secret — storing it in
+        // shared browser storage leaks it to anyone else who later
+        // signs in on the same device. The signup success page
+        // already displays it once with a 'save it to your password
+        // manager' callout; that's the only persistence we offer.
       }
     } catch (e: any) {
       setError(e?.message || "Network error");

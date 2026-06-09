@@ -415,15 +415,27 @@ export default function Start() {
           })
           .catch(() => {});
       } else if (saved && saved.startsWith("dt_")) {
-        // Legacy / power-user: MCP key cached directly. Use it to
-        // pre-fill snippets.
+        // Legacy / power-user: an MCP API key was cached in this
+        // session BEFORE the dashboard switched to dts_ session
+        // tokens. Use it for this tab only and don't promote it to
+        // anywhere persistent. We DO NOT read or write a long-lived
+        // 'dt_' key from localStorage — see security note below.
         setApiKey(saved);
       }
-      // Also restore an explicitly-saved CLI key from this device.
-      const cliKey = localStorage.getItem("drawtree_cli_api_key");
-      if (cliKey && cliKey.startsWith("dt_")) {
-        setApiKey(cliKey);
-      }
+      // SECURITY: we used to also rehydrate a 'dt_' key from
+      // localStorage. Removed because:
+      //   1. localStorage is shared by every visit to this origin on
+      //      this device. A second user signing in on the same
+      //      browser would see the previous user's plaintext key.
+      //   2. The cached value didn't refresh when the user clicked
+      //      'Regenerate' — we'd happily render a now-invalidated
+      //      key as if it were live.
+      // Belt-and-braces: actively clean up any 'dt_' value any prior
+      // build of this page may have written, so existing users get the
+      // leak plugged the next time they visit /start.
+      try {
+        localStorage.removeItem("drawtree_cli_api_key");
+      } catch {}
     } catch {}
     return () => {
       mounted = false;
@@ -548,10 +560,12 @@ export default function Start() {
       }
       const newKey = body.api_key;
       if (newKey) {
+        // In-memory ONLY — do not persist to localStorage. The user
+        // has to copy the key now or never; if they refresh the page,
+        // the panel goes back to 'paste your key here'. This matches
+        // how every other secret-credentials UI works (Stripe, AWS
+        // IAM access keys, GitHub PATs).
         setApiKey(newKey);
-        try {
-          localStorage.setItem("drawtree_cli_api_key", newKey);
-        } catch {}
       }
     } catch (e: any) {
       setRegenErr(e?.message || "Network error.");
@@ -561,7 +575,9 @@ export default function Start() {
 
   // Manual paste path — the user already has their key saved (from a
   // password manager or signup email) and just wants to pre-fill the
-  // snippets here without rotating.
+  // snippets here. Stored ONLY in component state for this page load.
+  // We deliberately don't persist to localStorage — see the
+  // SECURITY note in the init effect above.
   function saveManualKey() {
     const k = manualKeyInput.trim();
     if (!k.startsWith("dt_")) {
@@ -569,9 +585,6 @@ export default function Start() {
       return;
     }
     setApiKey(k);
-    try {
-      localStorage.setItem("drawtree_cli_api_key", k);
-    } catch {}
     setManualKeyInput("");
     setRegenErr(null);
   }
@@ -841,11 +854,15 @@ export default function Start() {
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <div className="text-[10px] uppercase tracking-wider text-muted mb-1">
-                    Your API key (saved on this device)
+                    Your API key (this tab only — not saved)
                   </div>
                   <code className="text-xs font-mono break-all">
                     {apiKey}
                   </code>
+                  <div className="text-[10px] text-muted mt-1">
+                    Copy it now — it disappears when you refresh this
+                    page. Store it in a password manager.
+                  </div>
                 </div>
                 <Copy text={apiKey} />
               </div>
@@ -853,10 +870,10 @@ export default function Start() {
               <div className="space-y-3">
                 <div className="text-xs text-muted">
                   <strong className="text-ink">Find your key:</strong>{" "}
-                  Look for the &ldquo;Welcome to Draw Tree&rdquo; email from{" "}
-                  <code>noreply@drawtree.capital</code> — it contains your
-                  <code className="mx-1">dt_</code>key. Paste it here to
-                  pre-fill the snippets below.
+                  Open your password manager (or the &ldquo;Welcome to Draw
+                  Tree&rdquo; email from <code>noreply@drawtree.capital</code>).
+                  Paste it here to pre-fill the install snippets. The key
+                  stays in this tab only — not saved to your browser.
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
