@@ -41,6 +41,30 @@ export default function SpecPage() {
             Try free
           </Link>
           <a
+            href="https://github.com/Draw-Tree/drawtree-protocol"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
+          >
+            Spec on GitHub ↗
+          </a>
+          <a
+            href="https://github.com/Draw-Tree/drawtree-validator"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
+          >
+            Validator ↗
+          </a>
+          <a
+            href="https://github.com/Draw-Tree/drawtree-skill"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
+          >
+            Skill ↗
+          </a>
+          <a
             href="https://drawtree-mcp.onrender.com/.well-known/oauth-protected-resource"
             target="_blank"
             rel="noopener noreferrer"
@@ -118,8 +142,39 @@ export default function SpecPage() {
           governs how AI clients behave — belongs to whoever wants
           to use it. Anyone can read this page, implement a server,
           and produce trees that interoperate with the ones on
-          drawtree.capital. We will publish a reference validator
-          for the same reason.
+          drawtree.capital.
+        </p>
+        <p className="text-sm text-muted mt-3 leading-relaxed">
+          The full normative specification lives at{" "}
+          <a
+            href="https://github.com/Draw-Tree/drawtree-protocol"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-ink underline-offset-4 hover:underline"
+          >
+            github.com/Draw-Tree/drawtree-protocol
+          </a>
+          . A reference Python validator (<code>pip install
+          drawtree-validator</code>) is at{" "}
+          <a
+            href="https://github.com/Draw-Tree/drawtree-validator"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-ink underline-offset-4 hover:underline"
+          >
+            github.com/Draw-Tree/drawtree-validator
+          </a>
+          . The AI-client contract (SKILL.md / AGENTS.md / system
+          prompt) is at{" "}
+          <a
+            href="https://github.com/Draw-Tree/drawtree-skill"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-ink underline-offset-4 hover:underline"
+          >
+            github.com/Draw-Tree/drawtree-skill
+          </a>
+          . All three are MIT-licensed.
         </p>
         <p className="text-sm text-muted mt-3 leading-relaxed">
           If drawtree.capital ever disappears, the trees you have
