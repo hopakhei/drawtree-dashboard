@@ -101,30 +101,32 @@ export default function SpecPage() {
         </p>
 
         <h3 className="text-sm font-medium mt-6 mb-2">
-          Open spec, commercial server
+          Why this protocol is open
         </h3>
         <p className="text-sm text-muted leading-relaxed">
-          The Draw Tree Protocol — schema, verdict vocabulary,
-          aggregation rules, validation invariants, and the shipped{" "}
-          <code>SKILL.md</code> client contract — is{" "}
-          <strong>open and free to re-implement</strong>. Anyone can
-          read this page, build a compliant server, and produce trees
-          that interoperate with ours.
+          A tool that claims to bring scientific method to investment
+          research cannot itself be a black box. The whole point of
+          scientific method, since Boyle and Hooke, has been that the
+          procedure is public — the conclusions can be argued with,
+          but only because the procedure can be inspected, repeated,
+          and challenged by anyone.
         </p>
         <p className="text-sm text-muted mt-3 leading-relaxed">
-          What is <strong>not</strong> open is the production server
-          at <code>drawtree.capital</code>: the 164-framework
-          knowledge base, the Tavily research orchestration, the
-          two-pass verdict judge that runs every Saturday, and the
-          prompts that drive them. That is the commercial product. The
-          split is deliberate — the protocol stays auditable and
-          portable; the implementation is where the work lives.
+          So the Draw Tree Protocol — the tree schema, the verdict
+          vocabulary, the aggregation rules, the validation
+          invariants, the <code>SKILL.md</code> contract that
+          governs how AI clients behave — belongs to whoever wants
+          to use it. Anyone can read this page, implement a server,
+          and produce trees that interoperate with the ones on
+          drawtree.capital. We will publish a reference validator
+          for the same reason.
         </p>
         <p className="text-sm text-muted mt-3 leading-relaxed">
-          Practical consequence: if drawtree.capital ever disappears,
-          the trees you committed are still readable against an open
-          spec, and another team can implement a replacement server
-          without our cooperation.
+          If drawtree.capital ever disappears, the trees you have
+          committed remain readable against this spec. Another team
+          can re-implement the server without our cooperation. That
+          is not a contingency plan — it is the property a protocol
+          has to have for it to deserve being called a protocol.
         </p>
       </section>
 
