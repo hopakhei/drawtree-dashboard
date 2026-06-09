@@ -33,7 +33,7 @@ export default async function Home() {
         </div>
         <div className="mt-4 flex gap-4 text-xs text-muted">
           <Link href="/spec" className="underline-offset-4 hover:underline">
-            Spec v0.2
+            Protocol v0.3
           </Link>
           <a href="/api/health" className="underline-offset-4 hover:underline">
             Health
@@ -57,9 +57,9 @@ export default async function Home() {
       <footer className="mt-20 text-xs text-muted border-t border-line pt-6">
         <p>
           drawtree.capital · structured equity research methodology ·
-          published trees are signed Ed25519 ·{" "}
+          published trees are content-addressed and append-only ·{" "}
           <Link href="/spec" className="underline">
-            see spec
+            see protocol
           </Link>
         </p>
       </footer>
