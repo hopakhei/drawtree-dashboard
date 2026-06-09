@@ -45,7 +45,19 @@ type Workspace = {
   tree_count: number;
 };
 
-type SignInState = "idle" | "sending" | "sent" | "verifying" | "error";
+// Sign-in state machine for the not-signed-in /account UI.
+//   idle       — form is empty, waiting for the email
+//   sending    — POST /request_login_link in flight
+//   code-entry — email sent; user types the 6-digit code
+//   verifying  — POST /verify_login_link (magic-link click) OR
+//                /verify_login_code (typed code) in flight
+//   error      — last action failed; show signInMsg
+type SignInState =
+  | "idle"
+  | "sending"
+  | "code-entry"
+  | "verifying"
+  | "error";
 
 export default function Account() {
   const [apiKey, setApiKey] = useState("");
@@ -54,12 +66,18 @@ export default function Account() {
   const [error, setError] = useState<string | null>(null);
   const [newKey, setNewKey] = useState<string | null>(null);
 
-  // Sign-in (magic link) UI state
+  // Sign-in UI state. Supports both the email-link path (user clicks
+  // the magic link in their inbox — opens a new tab) AND the 6-digit
+  // code path (user types the code into this tab — no tab change).
+  // The /v1/account/request_login_link endpoint emails BOTH on every
+  // request, so the user picks whichever is more convenient.
   const [email, setEmail] = useState("");
   const [signInState, setSignInState] = useState<SignInState>("idle");
   const [signInMsg, setSignInMsg] = useState<string | null>(null);
   const [devModeLink, setDevModeLink] = useState<string | null>(null);
+  const [devModeCode, setDevModeCode] = useState<string | null>(null);
   const [showKeyFallback, setShowKeyFallback] = useState(false);
+  const [signInCode, setSignInCode] = useState("");
 
   // Top-up status banner (after returning from Stripe)
   const [topupBanner, setTopupBanner] = useState<
@@ -268,28 +286,88 @@ export default function Account() {
         return;
       }
       if (d.unknown_email) {
-        // Anti-enumeration: API doesn't tell us, but we still want UX.
-        // Generic success message — if email exists, it'll arrive.
-        setSignInState("sent");
+        // Anti-enumeration: API doesn't tell us if the email exists.
+        // Show the code-entry stage anyway so we never reveal which
+        // emails are registered, but message says 'if registered…'.
+        setSignInState("code-entry");
         setSignInMsg(
-          "If that email is registered, a sign-in link is on the way. Check your inbox (and spam)."
+          "If that email is registered, a code is on its way. Check your inbox (and spam)."
         );
         return;
       }
       if (d.dev_mode && d.magic_link) {
-        // Email sender not configured yet — show the link so the user
-        // can still sign in.
-        setSignInState("sent");
+        // Email sender not configured yet — show the link AND the code
+        // so the user can still sign in.
+        setSignInState("code-entry");
         setDevModeLink(d.magic_link);
+        if (d.code) setDevModeCode(d.code);
         setSignInMsg(
-          "Email sender isn't configured yet — use this one-time sign-in link directly:"
+          "Email sender isn't configured yet — use the link or code below."
         );
         return;
       }
-      setSignInState("sent");
-      setSignInMsg(
-        "Check your inbox. The link expires in 30 minutes and can be used only once."
-      );
+      // Normal happy path: prompt for the 6-digit code (and tell them
+      // the magic link is also in the email if they prefer).
+      setSignInState("code-entry");
+      setSignInMsg(null);
+    } catch (err: any) {
+      setSignInState("error");
+      setSignInMsg(`Network error (${err?.message || "unknown"}).`);
+    }
+  }
+
+  // Verify the 6-digit code the user typed (alternative to clicking
+  // the magic link in their inbox). Same outcome as verify_login_link:
+  // exchanges email+code for a dts_ session token + drops the key into
+  // sessionStorage so the rest of the page re-renders in signed-in
+  // mode without a navigation.
+  async function submitCode(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    const cleaned = signInCode.replace(/\D/g, "");
+    if (cleaned.length !== 6) {
+      setSignInState("error");
+      setSignInMsg("The code is 6 digits.");
+      return;
+    }
+    setSignInState("verifying");
+    setSignInMsg(null);
+    try {
+      const r = await fetch(`${API_URL}/v1/account/verify_login_code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          code:  cleaned,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        const c = d?.detail?.code || "";
+        const msg =
+          c === "INVALID_CODE"        ? "That code doesn't match. Check the latest email." :
+          c === "CODE_ALREADY_USED"   ? "That code was already used. Request a new one." :
+          c === "CODE_EXPIRED"        ? "That code has expired. Request a new one." :
+          c === "INVALID_CODE_FORMAT" ? "The code must be 6 digits." :
+          `Sign-in failed (${r.status}).`;
+        setSignInState("error");
+        setSignInMsg(msg);
+        return;
+      }
+      // Persist the dts_ session token. The rest of the component
+      // checks apiKey on every render, so setting it flips us straight
+      // into the signed-in view.
+      const tok = d.session_token;
+      if (tok) {
+        setApiKey(tok);
+        try {
+          sessionStorage.setItem("drawtree_api_key", tok);
+        } catch {}
+        // Clean URL so a refresh doesn't re-try anything.
+        window.history.replaceState({}, "", "/account");
+      }
+      setSignInState("idle");
+      setSignInMsg(null);
+      setSignInCode("");
     } catch (err: any) {
       setSignInState("error");
       setSignInMsg(`Network error (${err?.message || "unknown"}).`);
@@ -379,15 +457,16 @@ export default function Account() {
         </Link>
         <h1 className="text-3xl tracking-tight mt-3">Sign in</h1>
         <p className="text-muted text-sm mt-2">
-          Enter your email and we&apos;ll send you a one-time sign-in link.
-          No password needed.
+          Enter your email and we&apos;ll email you a 6-digit code (and a
+          backup magic link). No password needed.
         </p>
 
         {signInState === "verifying" && (
           <div className="mt-6 text-sm text-muted">Signing you in…</div>
         )}
 
-        {signInState !== "verifying" && (
+        {/* Stage 1 — email form. Shown when we haven't sent a code yet. */}
+        {signInState !== "verifying" && signInState !== "code-entry" && (
           <form onSubmit={requestLink} className="mt-6 space-y-3">
             <input
               type="email"
@@ -402,9 +481,67 @@ export default function Account() {
               disabled={signInState === "sending"}
               className="w-full px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
             >
-              {signInState === "sending" ? "Sending…" : "Email me a sign-in link"}
+              {signInState === "sending" ? "Sending…" : "Email me a code"}
             </button>
           </form>
+        )}
+
+        {/* Stage 2 — code entry. After we've emailed the code. */}
+        {signInState === "code-entry" && (
+          <div className="mt-6 space-y-3">
+            <div className="text-xs text-muted">
+              Code sent to{" "}
+              <strong className="text-ink">{email}</strong>. Check your
+              inbox (and spam). Type the 6 digits below, or click the
+              backup link in the email.
+            </div>
+            <form onSubmit={submitCode} className="space-y-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                maxLength={11}
+                value={signInCode}
+                onChange={(e) => setSignInCode(e.target.value)}
+                placeholder="123 456"
+                className="w-full px-3 py-3 border border-line rounded text-lg font-mono tracking-widest text-center focus:outline-none focus:border-ink"
+              />
+              <button
+                type="submit"
+                disabled={signInCode.replace(/\D/g, "").length !== 6}
+                className="w-full px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
+              >
+                Sign in
+              </button>
+            </form>
+            <div className="flex items-center justify-between text-[11px] text-muted">
+              <button
+                type="button"
+                onClick={() => {
+                  setSignInState("idle");
+                  setSignInCode("");
+                  setSignInMsg(null);
+                }}
+                className="underline-offset-4 hover:underline"
+              >
+                ← Change email
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSignInCode("");
+                  setSignInMsg(null);
+                  requestLink({
+                    preventDefault: () => {},
+                  } as unknown as React.FormEvent);
+                }}
+                className="underline-offset-4 hover:underline"
+              >
+                Resend code
+              </button>
+            </div>
+          </div>
         )}
 
         {signInMsg && (
@@ -424,6 +561,14 @@ export default function Account() {
                 >
                   {devModeLink}
                 </a>
+              </div>
+            )}
+            {devModeCode && (
+              <div className="mt-2 text-xs">
+                Dev-mode code:{" "}
+                <code className="font-mono bg-white px-1 py-0.5 rounded">
+                  {devModeCode}
+                </code>
               </div>
             )}
           </div>
