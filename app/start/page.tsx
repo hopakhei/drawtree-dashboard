@@ -344,6 +344,16 @@ bearer_token_env_var = "DRAWTREE_API_KEY"`}
   },
 ];
 
+// Visual mask for an MCP API key when we want to confirm 'a key is set'
+// without leaking the full secret on screen. Keeps the prefix
+// (dt_aBcDeFg) so the user can verify it matches what's in their
+// password manager, then a long bullet run for the body.
+function maskKey(key: string): string {
+  if (!key) return "";
+  if (key.length <= 12) return key;
+  return `${key.slice(0, 10)}••••••••••••••••••••••••••••`;
+}
+
 function Copy({ text, label = "Copy" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -379,13 +389,25 @@ export default function Start() {
   const [mintingClient, setMintingClient] = useState(false);
   const [clientErr, setClientErr] = useState<string | null>(null);
 
-  // API-key regenerate flow. We don't have the user's existing dt_ key
-  // (it's hashed) — to use a CLI client they either paste a key they
-  // already saved from signup, or regenerate. Regenerate invalidates
-  // the old one, so we warn first.
+  // API-key panel state. Two distinct "in scope" modes:
+  //
+  //   `keySource === 'fresh'`  — user just clicked Generate. Show the
+  //     full key in a green callout with a 'save it now' warning and
+  //     an 'I've saved it ✓' acknowledgement button. Until they click,
+  //     the snippets below stay populated with the plaintext.
+  //
+  //   `keySource === 'pasted'` — user pasted a key they already have.
+  //     Show prefix only by default (e.g. dt_aBcDeFg…), with an eye
+  //     toggle to reveal. They can confirm it matches what's in their
+  //     password manager without exposing it on screen.
+  //
+  // When `apiKey === null`, the panel is in its empty paste-or-generate
+  // state. Component state ONLY — nothing persists to localStorage.
   const [regenerating, setRegenerating] = useState(false);
   const [regenErr, setRegenErr] = useState<string | null>(null);
   const [manualKeyInput, setManualKeyInput] = useState("");
+  const [keySource, setKeySource] = useState<"fresh" | "pasted" | null>(null);
+  const [keyRevealed, setKeyRevealed] = useState(false);
 
   // Active client tab. Default to ChatGPT since it's the largest segment.
   const [active, setActive] = useState<ClientKey>("chatgpt");
@@ -566,6 +588,8 @@ export default function Start() {
         // how every other secret-credentials UI works (Stripe, AWS
         // IAM access keys, GitHub PATs).
         setApiKey(newKey);
+        setKeySource("fresh");
+        setKeyRevealed(true);  // freshly issued: show by default so the user can copy
       }
     } catch (e: any) {
       setRegenErr(e?.message || "Network error.");
@@ -585,6 +609,19 @@ export default function Start() {
       return;
     }
     setApiKey(k);
+    setKeySource("pasted");
+    setKeyRevealed(false);  // pasted: keep masked by default for shoulder-surf safety
+    setManualKeyInput("");
+    setRegenErr(null);
+  }
+
+  // Clear the active key from this tab (e.g. after the user has saved
+  // a freshly-generated key into their password manager). Lets them
+  // get the panel out of 'reveal' mode without refreshing the page.
+  function clearKey() {
+    setApiKey(null);
+    setKeySource(null);
+    setKeyRevealed(false);
     setManualKeyInput("");
     setRegenErr(null);
   }
@@ -835,6 +872,11 @@ export default function Start() {
                 <>
                   (pre-filled below —{" "}
                   <span className="font-mono">{apiKey.slice(0, 10)}…</span>
+                  {keySource === "fresh" && (
+                    <span className="ml-2 text-emerald-700">
+                      ✨ just generated
+                    </span>
+                  )}
                   ).
                 </>
               ) : (
@@ -847,66 +889,152 @@ export default function Start() {
           )}
         </div>
 
-        {/* API key panel — only shown when the active client uses Bearer auth */}
+        {/* ============================================================
+            API key panel — only shown when the active client uses
+            Bearer auth. Three modes (see keySource state up top):
+              - apiKey === null → empty paste-or-generate form
+              - keySource === 'fresh' → green callout, shown by default,
+                  with 'save it now' warning + 'I've saved it' button
+              - keySource === 'pasted' → masked prefix with reveal eye
+            ============================================================ */}
         {!isOAuthClient && (
           <div className="mb-5 border border-line rounded p-3 bg-paper-2/40 space-y-3">
-            {apiKey ? (
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <div className="text-[10px] uppercase tracking-wider text-muted mb-1">
-                    Your API key (this tab only — not saved)
+            {/* Mode 1: freshly generated key — must save now */}
+            {apiKey && keySource === "fresh" && (
+              <div className="border border-emerald-300 bg-emerald-50/50 rounded p-3 space-y-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="text-[10px] uppercase tracking-wider text-emerald-800 font-medium">
+                    ✨ New API key — save it now
                   </div>
-                  <code className="text-xs font-mono break-all">
-                    {apiKey}
-                  </code>
-                  <div className="text-[10px] text-muted mt-1">
-                    Copy it now — it disappears when you refresh this
-                    page. Store it in a password manager.
-                  </div>
-                </div>
-                <Copy text={apiKey} />
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="text-xs text-muted">
-                  <strong className="text-ink">Find your key:</strong>{" "}
-                  Open your password manager (or the &ldquo;Welcome to Draw
-                  Tree&rdquo; email from <code>noreply@drawtree.capital</code>).
-                  Paste it here to pre-fill the install snippets. The key
-                  stays in this tab only — not saved to your browser.
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={manualKeyInput}
-                    onChange={(e) => setManualKeyInput(e.target.value)}
-                    placeholder="dt_xxxxxxxx..."
-                    className="flex-1 px-3 py-2 text-xs font-mono border border-line rounded focus:outline-none focus:border-ink"
-                  />
                   <button
-                    onClick={saveManualKey}
-                    disabled={!manualKeyInput.startsWith("dt_")}
-                    className="px-4 py-2 text-xs border border-line rounded hover:bg-paper-2 disabled:opacity-50"
+                    onClick={clearKey}
+                    className="text-[11px] text-emerald-800 hover:underline underline-offset-4"
                   >
-                    Use this key
+                    I&apos;ve saved it ✓
                   </button>
                 </div>
-                {isSignedIn && (
-                  <div className="text-[11px] text-muted border-t border-line pt-2">
-                    Lost it?{" "}
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs font-mono break-all bg-white border border-emerald-200 rounded px-2 py-1.5">
+                    {keyRevealed ? apiKey : maskKey(apiKey)}
+                  </code>
+                  <button
+                    onClick={() => setKeyRevealed((v) => !v)}
+                    className="px-2 py-1.5 text-xs border border-emerald-200 rounded hover:bg-emerald-100 shrink-0"
+                    title={keyRevealed ? "Hide" : "Reveal"}
+                  >
+                    {keyRevealed ? "🔒 Hide" : "👁 Reveal"}
+                  </button>
+                  <Copy text={apiKey} />
+                </div>
+                <div className="text-[11px] text-emerald-900 leading-relaxed">
+                  This is the <strong>only time</strong> the key is visible.
+                  Copy it into your password manager (1Password, Bitwarden,
+                  Apple Keychain…) right now. After you refresh the page or
+                  click <em>I&apos;ve saved it</em>, you&apos;ll have to
+                  regenerate to see another one (which invalidates this one).
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: previously-pasted key — masked by default */}
+            {apiKey && keySource === "pasted" && (
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="text-[10px] uppercase tracking-wider text-muted">
+                    Active API key (this tab only)
+                  </div>
+                  <button
+                    onClick={clearKey}
+                    className="text-[11px] text-muted hover:underline underline-offset-4"
+                  >
+                    Use a different key
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs font-mono break-all bg-paper border border-line rounded px-2 py-1.5">
+                    {keyRevealed ? apiKey : maskKey(apiKey)}
+                  </code>
+                  <button
+                    onClick={() => setKeyRevealed((v) => !v)}
+                    className="px-2 py-1.5 text-xs border border-line rounded hover:bg-paper-2 shrink-0"
+                    title={keyRevealed ? "Hide" : "Reveal"}
+                  >
+                    {keyRevealed ? "🔒 Hide" : "👁 Reveal"}
+                  </button>
+                  <Copy text={apiKey} />
+                </div>
+                <div className="text-[10px] text-muted">
+                  The key fills the install snippets below. Not saved —
+                  paste again next time, or use a password-manager
+                  autofill.
+                </div>
+              </div>
+            )}
+
+            {/* Mode 3: empty — paste existing OR generate new */}
+            {!apiKey && (
+              <div className="space-y-4">
+                {/* Paste-existing path */}
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-ink">
+                    Have your key?
+                  </div>
+                  <div className="text-[11px] text-muted">
+                    Paste it from your password manager (or the
+                    &ldquo;Welcome to Draw Tree&rdquo; email). Stays in
+                    this tab only.
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={manualKeyInput}
+                      onChange={(e) => setManualKeyInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && manualKeyInput.startsWith("dt_")) {
+                          saveManualKey();
+                        }
+                      }}
+                      placeholder="dt_xxxxxxxx…"
+                      className="flex-1 px-3 py-2 text-xs font-mono border border-line rounded focus:outline-none focus:border-ink"
+                    />
+                    <button
+                      onClick={saveManualKey}
+                      disabled={!manualKeyInput.startsWith("dt_")}
+                      className="px-4 py-2 text-xs border border-line rounded hover:bg-paper-2 disabled:opacity-50"
+                    >
+                      Use this key
+                    </button>
+                  </div>
+                </div>
+
+                {/* Divider + Generate path (signed-in only) */}
+                {isSignedIn ? (
+                  <div className="border-t border-line pt-3 space-y-2">
+                    <div className="text-xs font-medium text-ink">
+                      Lost your key, or first time setting up?
+                    </div>
+                    <div className="text-[11px] text-muted">
+                      Generate a fresh one. This{" "}
+                      <strong>invalidates the previous key</strong> — any
+                      AI client currently using the old key will stop
+                      working until you update it.
+                    </div>
                     <button
                       onClick={regenerateKey}
                       disabled={regenerating}
-                      className="underline-offset-4 hover:underline disabled:opacity-50"
+                      className="px-4 py-2 text-xs bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
                     >
-                      {regenerating
-                        ? "Generating…"
-                        : "Generate a new key (invalidates the old one)"}
+                      {regenerating ? "Generating…" : "Generate new API key"}
                     </button>
                   </div>
+                ) : (
+                  <div className="border-t border-line pt-3 text-[11px] text-muted">
+                    Want to generate a new key? Sign in at step 1 above.
+                  </div>
                 )}
+
                 {regenErr && (
                   <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
                     {regenErr}
