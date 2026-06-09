@@ -5,7 +5,6 @@ import Link from "next/link";
 
 
 const API_URL = "https://drawtree-api.onrender.com";
-const MCP_URL = "https://drawtree-mcp.onrender.com/mcp";
 
 type Me = {
   agent_id: string;
@@ -847,43 +846,9 @@ export default function Account() {
             </section>
           )}
 
-          <section className="mt-6 border border-line rounded p-6">
-            <h2 className="text-lg">MCP setup</h2>
-            <p className="text-xs text-muted mt-1 mb-4">
-              Add a custom MCP connector in your AI client with these details.
-              Your API key was shown once when you signed up — if you've lost
-              it, click <strong>Regenerate API key</strong> in Account details
-              below. Signing in by email does <em>not</em> change your MCP key.
-            </p>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <span className="text-muted">MCP server URL</span>
-                <code className="text-xs">{MCP_URL}</code>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted">Auth header</span>
-                <code className="text-xs">Authorization</code>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted">Value</span>
-                <code className="text-xs">Bearer dt_… (your API key)</code>
-              </div>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => navigator.clipboard.writeText(MCP_URL)}
-                className="px-3 py-1.5 text-xs border border-line rounded hover:bg-line/40"
-              >
-                Copy MCP URL
-              </button>
-              <Link
-                href="/start"
-                className="px-3 py-1.5 text-xs border border-line rounded hover:bg-line/40"
-              >
-                Setup guide →
-              </Link>
-            </div>
-          </section>
+          {/* MCP setup section removed — fully redundant with /start,
+              which is now the single source of truth for install
+              instructions, server URL, and auth header details. */}
 
           <section className="mt-6 border border-line rounded p-6">
             <h2 className="text-lg">Account details</h2>
