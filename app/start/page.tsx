@@ -354,6 +354,257 @@ function maskKey(key: string): string {
   return `${key.slice(0, 10)}••••••••••••••••••••••••••••`;
 }
 
+// Download links for the three skill artifacts our /api routes serve.
+const SKILL_MD_URL  = "/api/skill/skill.md";
+const SKILL_ZIP_URL = "/api/skill/skill.zip";
+const AGENTS_MD_URL = "/api/skill/agents.md";
+
+// Per-client skill install panel. Renders the right install path for
+// each AI client — different file format + different drop location for
+// each. Centralised here so step 3 always reflects what step 2 selected.
+function SkillInstallPanel({ client }: { client: ClientKey }) {
+  switch (client) {
+    case "chatgpt":
+      return (
+        <div className="text-sm space-y-3 text-muted">
+          <p>
+            ChatGPT&apos;s consumer tier doesn&apos;t have a skill/plugin
+            primitive yet. Use one of these instead:
+          </p>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              <strong className="text-ink">Custom GPT (recommended).</strong>{" "}
+              ChatGPT → Explore GPTs → Create → Configure → paste the
+              raw instructions (see expandable section below) into the{" "}
+              <em>Instructions</em> field. Save. Open your custom GPT —
+              the drawtree connector and the workflow rules are both
+              attached.
+            </li>
+            <li>
+              <strong className="text-ink">Project instructions.</strong>{" "}
+              ChatGPT Projects → New project → set the Project
+              instructions to the raw text below. Every chat in that
+              project inherits it.
+            </li>
+          </ol>
+        </div>
+      );
+
+    case "claude_ai":
+      return (
+        <div className="text-sm space-y-3 text-muted">
+          <p>
+            Upload the skill ZIP to Claude.ai (Anthropic Skills format).
+          </p>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              Download the skill bundle below — it&apos;s a ZIP
+              containing <code>drawtree/SKILL.md</code>.
+            </li>
+            <li>
+              Claude.ai → <strong>Settings → Capabilities → Skills →
+              Upload Skill</strong>.
+            </li>
+            <li>Pick the ZIP, then toggle the skill on.</li>
+            <li>
+              Open a chat. The skill auto-activates when you mention a
+              ticker or say &ldquo;drawtree&rdquo;.
+            </li>
+          </ol>
+          <DownloadRow
+            href={SKILL_ZIP_URL}
+            filename="drawtree-skill.zip"
+            label="Download drawtree-skill.zip"
+          />
+        </div>
+      );
+
+    case "perplexity":
+      return (
+        <div className="text-sm space-y-4 text-muted">
+          <div className="space-y-3">
+            <p>
+              <strong className="text-ink">Option A — Web upload (1 minute).</strong>{" "}
+              Works for everyone with Perplexity Max access to Computer.
+            </p>
+            <ol className="list-decimal list-inside space-y-2">
+              <li>Download the skill .md or .zip below.</li>
+              <li>
+                Open{" "}
+                <a
+                  href="https://www.perplexity.ai/computer/skills"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ink underline-offset-4 hover:underline"
+                >
+                  perplexity.ai/computer/skills
+                </a>{" "}
+                → <strong>+ Create skill</strong> → <strong>Upload a
+                skill</strong>.
+              </li>
+              <li>Attach the file. The skill activates immediately.</li>
+            </ol>
+            <div className="flex flex-wrap gap-2">
+              <DownloadRow
+                href={SKILL_MD_URL}
+                filename="drawtree-SKILL.md"
+                label="Download SKILL.md"
+              />
+              <DownloadRow
+                href={SKILL_ZIP_URL}
+                filename="drawtree-skill.zip"
+                label="Download drawtree-skill.zip"
+                secondary
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-line pt-4 space-y-3">
+            <p>
+              <strong className="text-ink">Option B — Sonar API.</strong>{" "}
+              If you&apos;re using Perplexity&apos;s{" "}
+              <a
+                href="https://docs.perplexity.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ink underline-offset-4 hover:underline"
+              >
+                Sonar / Agent API
+              </a>{" "}
+              programmatically (i.e. you have a <code>pplx-xxx</code> key,
+              not just a Max subscription), pass the SKILL.md content as
+              your <code>system</code> message. The MCP server isn&apos;t
+              callable from Sonar today, but the workflow rules still help
+              the model structure its reply.
+            </p>
+            <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+{`curl https://api.perplexity.ai/chat/completions \\
+  -H "Authorization: Bearer $PERPLEXITY_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "sonar-reasoning-pro",
+    "messages": [
+      {"role": "system", "content": "<paste SKILL.md body here>"},
+      {"role": "user",   "content": "Analyze NVDA"}
+    ]
+  }'`}
+            </pre>
+          </div>
+        </div>
+      );
+
+    case "claude_code":
+      return (
+        <div className="text-sm space-y-3 text-muted">
+          <p>
+            Claude Code reads skills from <code>~/.claude/skills/</code>{" "}
+            (global) or <code>.claude/skills/</code> in the current project.
+          </p>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              Make the skill folder and drop the SKILL.md into it:
+            </li>
+          </ol>
+          <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+{`mkdir -p ~/.claude/skills/drawtree
+curl -L https://drawtree.capital${SKILL_MD_URL} \\
+  -o ~/.claude/skills/drawtree/SKILL.md`}
+          </pre>
+          <p className="text-[11px]">
+            Then run <code>/skills</code> in Claude Code to confirm it
+            loaded, or just say &ldquo;Use the drawtree skill…&rdquo;.
+          </p>
+          <DownloadRow
+            href={SKILL_MD_URL}
+            filename="SKILL.md"
+            label="Download SKILL.md (manual install)"
+          />
+        </div>
+      );
+
+    case "codex":
+      return (
+        <div className="text-sm space-y-3 text-muted">
+          <p>
+            Codex CLI auto-loads <code>AGENTS.md</code> files from your
+            Codex home or the current project root. No special command —
+            just drop the file.
+          </p>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              Save the AGENTS.md to your Codex home (applies to every
+              session):
+            </li>
+          </ol>
+          <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+{`mkdir -p ~/.codex
+curl -L https://drawtree.capital${AGENTS_MD_URL} \\
+  -o ~/.codex/AGENTS.md`}
+          </pre>
+          <p className="text-[11px]">
+            Per-project alternative: drop the same file at{" "}
+            <code>&lt;project-root&gt;/AGENTS.md</code>. Codex merges
+            global + project files automatically.
+          </p>
+          <DownloadRow
+            href={AGENTS_MD_URL}
+            filename="AGENTS.md"
+            label="Download AGENTS.md (manual install)"
+          />
+        </div>
+      );
+
+    case "claude_desktop":
+      return (
+        <div className="text-sm space-y-3 text-muted">
+          <p>
+            Same Anthropic Skills format as Claude.ai — upload the ZIP
+            in Settings.
+          </p>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>Download the skill bundle below.</li>
+            <li>
+              Claude Desktop → <strong>Settings → Capabilities → Skills
+              → Upload Skill</strong>.
+            </li>
+            <li>Pick the ZIP, then toggle the skill on.</li>
+          </ol>
+          <DownloadRow
+            href={SKILL_ZIP_URL}
+            filename="drawtree-skill.zip"
+            label="Download drawtree-skill.zip"
+          />
+        </div>
+      );
+  }
+}
+
+function DownloadRow({
+  href,
+  filename,
+  label,
+  secondary = false,
+}: {
+  href: string;
+  filename: string;
+  label: string;
+  secondary?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      download={filename}
+      className={
+        secondary
+          ? "inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-line rounded hover:bg-paper-2 transition"
+          : "inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-ink text-paper rounded hover:opacity-90 transition"
+      }
+    >
+      ↓ {label}
+    </a>
+  );
+}
+
 function Copy({ text, label = "Copy" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -1094,30 +1345,61 @@ export default function Start() {
       </section>
 
       {/* ============================================== */}
-      {/* Step 3 — paste the starter prompt              */}
+      {/* Step 3 — install the Draw Tree skill / agent file */}
       {/* ============================================== */}
       <section className="mb-6 border border-line rounded p-6">
         <h2 className="text-lg mb-3">
           <span className="text-muted mr-2">3 ·</span>
-          Paste the starter prompt and run a ticker
+          Install the Draw Tree skill
         </h2>
         <p className="text-sm text-muted mb-4">
-          Once Draw Tree is connected, open a new chat in your AI client
-          and paste the prompt below. It tells the model how to drive the
-          Draw Tree workflow correctly. Then say{" "}
-          <em>&ldquo;I want to analyze NVDA&rdquo;</em> (or any ticker) and
-          the model walks you through Phase 1 → Phase 2.
+          The skill teaches your AI <em>how</em> to drive the Draw Tree
+          workflow correctly (entry gate, Phase 1 stages, Phase 2 deep
+          research, etc.). Each client has its own install path — pick
+          yours below.
         </p>
-        <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap max-h-96">
-          {STARTER_PROMPT}
-        </pre>
-        <div className="mt-3 flex gap-2">
-          <Copy text={STARTER_PROMPT} label="Copy starter prompt" />
+
+        {/* Same tabs as Step 2 — driven off the active state, so the user
+            doesn't have to scroll up to switch. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
+          {CLIENTS.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setActive(c.key)}
+              className={`text-xs px-3 py-2 rounded border text-left transition ${
+                active === c.key
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                  : "border-line text-muted hover:bg-line/30"
+              }`}
+            >
+              <div className="font-medium">{c.label}</div>
+              <div className="text-[10px] opacity-70 mt-0.5">{c.tagline}</div>
+            </button>
+          ))}
         </div>
+
+        {/* Per-client skill install body. */}
+        <SkillInstallPanel client={active} />
+
+        {/* Always-available fallback: copy raw prompt for clients with
+            no native skill primitive yet. */}
+        <details className="mt-5 border-t border-line pt-4">
+          <summary className="text-xs text-muted cursor-pointer hover:text-ink select-none">
+            Show raw instructions (for any client that has no skill primitive)
+          </summary>
+          <pre className="mt-3 bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap max-h-80">
+            {STARTER_PROMPT}
+          </pre>
+          <div className="mt-2">
+            <Copy text={STARTER_PROMPT} label="Copy raw instructions" />
+          </div>
+        </details>
+
         <div className="mt-4 text-[11px] text-muted border-t border-line pt-3">
-          <strong className="text-ink">Tip:</strong> save the prompt as a
-          system message / project instruction / custom GPT in your AI
-          client so you never have to paste it again.
+          <strong className="text-ink">After installing:</strong> open a
+          new chat in your AI client and just say{" "}
+          <em>&ldquo;I want to analyze NVDA&rdquo;</em> (or any ticker).
+          The skill auto-activates and walks you through Phase 1 → Phase 2.
         </div>
       </section>
 
