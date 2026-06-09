@@ -52,6 +52,83 @@ export default function SpecPage() {
       </header>
 
       {/* -------------------------------------------------------- */}
+      {/* 0 · Protocol vs MCP — the layering                       */}
+      {/* -------------------------------------------------------- */}
+      <section className="mb-12">
+        <h2 className="text-xl tracking-tight mb-3">
+          0 · Protocol vs MCP — two different layers
+        </h2>
+        <p className="text-sm text-muted mb-4 leading-relaxed">
+          A common point of confusion: <strong>MCP</strong> (Model
+          Context Protocol) is a generic transport spec that lets any
+          AI client talk to any tool server. It defines how to{" "}
+          <code>tools/list</code>, how to call a tool, how OAuth works
+          on the wire — it knows nothing about what the server
+          actually does. The <strong>Draw Tree Protocol</strong> is a
+          domain contract: what a valid investment hypothesis tree
+          looks like, what verdict vocabulary it uses, how branch
+          weights aggregate, what valuation methods are accepted.
+        </p>
+        <div className="border border-line rounded overflow-hidden mt-4">
+          <table className="w-full text-xs">
+            <thead className="bg-paper-2 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Layer</th>
+                <th className="px-3 py-2 font-medium">What it defines</th>
+                <th className="px-3 py-2 font-medium">Analogy</th>
+              </tr>
+            </thead>
+            <tbody className="text-muted">
+              <tr className="border-t border-line">
+                <td className="px-3 py-2 font-mono text-ink">MCP</td>
+                <td className="px-3 py-2">Transport, discovery, auth.</td>
+                <td className="px-3 py-2">HTTP</td>
+              </tr>
+              <tr className="border-t border-line">
+                <td className="px-3 py-2 font-mono text-ink">Draw Tree Protocol</td>
+                <td className="px-3 py-2">Tree schema, verdict vocab, aggregation rules, validation invariants.</td>
+                <td className="px-3 py-2">OpenAPI schema</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-sm text-muted mt-4 leading-relaxed">
+          You could in principle implement the Draw Tree Protocol over
+          plain REST or gRPC and skip MCP entirely. You could equally
+          host a completely different research methodology over MCP.
+          Today we ship the protocol on MCP because that&apos;s the
+          transport AI clients understand natively.
+        </p>
+
+        <h3 className="text-sm font-medium mt-6 mb-2">
+          Open spec, commercial server
+        </h3>
+        <p className="text-sm text-muted leading-relaxed">
+          The Draw Tree Protocol — schema, verdict vocabulary,
+          aggregation rules, validation invariants, and the shipped{" "}
+          <code>SKILL.md</code> client contract — is{" "}
+          <strong>open and free to re-implement</strong>. Anyone can
+          read this page, build a compliant server, and produce trees
+          that interoperate with ours.
+        </p>
+        <p className="text-sm text-muted mt-3 leading-relaxed">
+          What is <strong>not</strong> open is the production server
+          at <code>drawtree.capital</code>: the 164-framework
+          knowledge base, the Tavily research orchestration, the
+          two-pass verdict judge that runs every Saturday, and the
+          prompts that drive them. That is the commercial product. The
+          split is deliberate — the protocol stays auditable and
+          portable; the implementation is where the work lives.
+        </p>
+        <p className="text-sm text-muted mt-3 leading-relaxed">
+          Practical consequence: if drawtree.capital ever disappears,
+          the trees you committed are still readable against an open
+          spec, and another team can implement a replacement server
+          without our cooperation.
+        </p>
+      </section>
+
+      {/* -------------------------------------------------------- */}
       {/* 1 · The tree schema                                       */}
       {/* -------------------------------------------------------- */}
       <section className="mb-12">
