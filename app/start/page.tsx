@@ -217,15 +217,11 @@ const CLIENTS: ClientDef[] = [
   {
     key: "perplexity",
     label: "Perplexity",
-    tagline: "Web · OAuth (manual Client ID)",
-    authMode: "oauth",
-    body: (_, clientId) => (
-      <div className="text-sm space-y-3 text-muted">
-        <p>
-          Perplexity is the one client that doesn&apos;t auto-register, so
-          you need to paste a Client ID. Generate one with the button
-          below, then:
-        </p>
+    tagline: "Web · OAuth or API key",
+    authMode: "oauth",  // shows the OAuth section + the API-key alternative below
+    body: (apiKey, clientId) => (
+      <div className="text-sm space-y-5 text-muted">
+        {/* Common preamble: open the custom-connector dialog. */}
         <ol className="space-y-2 list-decimal list-inside">
           <li>
             Perplexity: <strong>Settings → Connectors → + Custom
@@ -240,28 +236,78 @@ const CLIENTS: ClientDef[] = [
           <li>
             Transport: <code>Streamable HTTP</code>
           </li>
-          <li>
-            Authentication: <strong>OAuth</strong>
-          </li>
-          <li>
-            Client ID:{" "}
-            {clientId ? (
-              <MonoLine>{clientId}</MonoLine>
-            ) : (
-              <span className="text-[11px]">
-                (generate one in the panel below — only takes a click)
-              </span>
-            )}
-          </li>
-          <li>
-            Client Secret: <code>none-required</code> (placeholder — we use
-            PKCE, no real secret).
-          </li>
-          <li>
-            Tick the risk acknowledgement → <strong>Add</strong>. Approve
-            in the popup that opens to drawtree.capital.
-          </li>
+          <li>Pick one of the two auth methods below.</li>
         </ol>
+
+        {/* Option A — API key (simplest if you already have a dt_ key). */}
+        <div className="border border-line rounded p-3 bg-paper-2/40 space-y-2">
+          <div className="text-xs font-medium text-ink">
+            → Option A — API key (simplest, recommended)
+          </div>
+          <ol className="space-y-1 list-decimal list-inside text-[12.5px]">
+            <li>
+              Authentication: <code>API Key</code>
+            </li>
+            <li>
+              API key: paste your{" "}
+              {apiKey ? (
+                <>
+                  <code className="text-[11px]">
+                    {apiKey.slice(0, 10)}…
+                  </code>{" "}
+                  (from step 2&apos;s key panel above)
+                </>
+              ) : (
+                <>
+                  <code>dt_</code> key (paste or generate it in the
+                  &ldquo;Your API key&rdquo; panel above, then copy
+                  here)
+                </>
+              )}
+            </li>
+            <li>
+              Tick the risk acknowledgement → <strong>Add</strong>. Done.
+            </li>
+          </ol>
+          <p className="text-[11px] text-muted">
+            Your key never leaves Perplexity — they pass it as a Bearer
+            header on every MCP call. No browser popup, no OAuth dance.
+          </p>
+        </div>
+
+        {/* Option B — OAuth (more secure, requires per-user consent). */}
+        <div className="border border-line rounded p-3 bg-paper-2/40 space-y-2">
+          <div className="text-xs font-medium text-ink">
+            → Option B — OAuth (per-user consent, no shared key)
+          </div>
+          <ol className="space-y-1 list-decimal list-inside text-[12.5px]">
+            <li>
+              Authentication: <strong>OAuth</strong>
+            </li>
+            <li>
+              Client ID:{" "}
+              {clientId ? (
+                <MonoLine>{clientId}</MonoLine>
+              ) : (
+                <span className="text-[11px]">
+                  (generate one with the button below — only takes a click)
+                </span>
+              )}
+            </li>
+            <li>
+              Client Secret: <code>none-required</code> (placeholder —
+              we use PKCE, no real secret)
+            </li>
+            <li>
+              Tick the risk acknowledgement → <strong>Add</strong>.
+              Approve in the popup that opens to drawtree.capital.
+            </li>
+          </ol>
+          <p className="text-[11px] text-muted">
+            Better for shared / org accounts because each session signs
+            in with email — nothing long-lived to leak.
+          </p>
+        </div>
       </div>
     ),
   },
@@ -421,74 +467,40 @@ function SkillInstallPanel({ client }: { client: ClientKey }) {
 
     case "perplexity":
       return (
-        <div className="text-sm space-y-4 text-muted">
-          <div className="space-y-3">
-            <p>
-              <strong className="text-ink">Option A — Web upload (1 minute).</strong>{" "}
-              Works for everyone with Perplexity Max access to Computer.
-            </p>
-            <ol className="list-decimal list-inside space-y-2">
-              <li>Download the skill .md or .zip below.</li>
-              <li>
-                Open{" "}
-                <a
-                  href="https://www.perplexity.ai/computer/skills"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-ink underline-offset-4 hover:underline"
-                >
-                  perplexity.ai/computer/skills
-                </a>{" "}
-                → <strong>+ Create skill</strong> → <strong>Upload a
-                skill</strong>.
-              </li>
-              <li>Attach the file. The skill activates immediately.</li>
-            </ol>
-            <div className="flex flex-wrap gap-2">
-              <DownloadRow
-                href={SKILL_MD_URL}
-                filename="drawtree-SKILL.md"
-                label="Download SKILL.md"
-              />
-              <DownloadRow
-                href={SKILL_ZIP_URL}
-                filename="drawtree-skill.zip"
-                label="Download drawtree-skill.zip"
-                secondary
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-line pt-4 space-y-3">
-            <p>
-              <strong className="text-ink">Option B — Sonar API.</strong>{" "}
-              If you&apos;re using Perplexity&apos;s{" "}
+        <div className="text-sm space-y-3 text-muted">
+          <p>
+            Save the starter prompt as a Perplexity skill so it activates
+            automatically whenever you mention a ticker.
+          </p>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>Download the skill .md or .zip below.</li>
+            <li>
+              Open{" "}
               <a
-                href="https://docs.perplexity.ai"
+                href="https://www.perplexity.ai/computer/skills"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-ink underline-offset-4 hover:underline"
               >
-                Sonar / Agent API
+                perplexity.ai/computer/skills
               </a>{" "}
-              programmatically (i.e. you have a <code>pplx-xxx</code> key,
-              not just a Max subscription), pass the SKILL.md content as
-              your <code>system</code> message. The MCP server isn&apos;t
-              callable from Sonar today, but the workflow rules still help
-              the model structure its reply.
-            </p>
-            <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
-{`curl https://api.perplexity.ai/chat/completions \\
-  -H "Authorization: Bearer $PERPLEXITY_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "sonar-reasoning-pro",
-    "messages": [
-      {"role": "system", "content": "<paste SKILL.md body here>"},
-      {"role": "user",   "content": "Analyze NVDA"}
-    ]
-  }'`}
-            </pre>
+              → <strong>+ Create skill</strong> → <strong>Upload a
+              skill</strong>.
+            </li>
+            <li>Attach the file. The skill activates immediately.</li>
+          </ol>
+          <div className="flex flex-wrap gap-2">
+            <DownloadRow
+              href={SKILL_MD_URL}
+              filename="drawtree-SKILL.md"
+              label="Download SKILL.md"
+            />
+            <DownloadRow
+              href={SKILL_ZIP_URL}
+              filename="drawtree-skill.zip"
+              label="Download drawtree-skill.zip"
+              secondary
+            />
           </div>
         </div>
       );
