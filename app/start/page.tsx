@@ -510,62 +510,143 @@ function SkillInstallPanel({ client }: { client: ClientKey }) {
 
     case "claude_code":
       return (
-        <div className="text-sm space-y-3 text-muted">
+        <div className="text-sm space-y-4 text-muted">
           <p>
-            Claude Code reads skills from <code>~/.claude/skills/</code>{" "}
-            (global) or <code>.claude/skills/</code> in the current project.
+            Claude Code&apos;s sandbox blocks outbound network calls by
+            default, so <code>curl</code>-from-inside-Claude doesn&apos;t
+            work for <code>drawtree.capital</code>. The smoothest path is
+            to <strong>download in your browser, then ask Claude to install
+            it</strong> — your browser fetch isn&apos;t sandboxed, Claude
+            just writes the local file.
           </p>
-          <ol className="list-decimal list-inside space-y-2">
-            <li>
-              Make the skill folder and drop the SKILL.md into it:
-            </li>
-          </ol>
-          <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
-{`mkdir -p ~/.claude/skills/drawtree
-curl -L https://drawtree.capital${SKILL_MD_URL} \\
+
+          {/* PRIMARY — one-click browser download + paste prompt */}
+          <div className="border border-emerald-300 bg-emerald-50/40 rounded p-3 space-y-2">
+            <div className="text-[10px] uppercase tracking-wider text-emerald-800 font-medium">
+              ✨ Recommended — two clicks
+            </div>
+            <ol className="list-decimal list-inside space-y-1 text-[13px]">
+              <li>Click <strong>Download SKILL.md</strong> below.</li>
+              <li>
+                In Claude Code, paste the one-line prompt below and hit
+                enter. Claude installs it for you.
+              </li>
+            </ol>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <DownloadRow
+                href={SKILL_MD_URL}
+                filename="SKILL.md"
+                label="Download SKILL.md"
+              />
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <code className="flex-1 text-[11px] font-mono bg-white border border-emerald-200 rounded px-2 py-1.5">
+                Install the Draw Tree skill: create the folder ~/.claude/skills/drawtree and move ~/Downloads/SKILL.md into it.
+              </code>
+              <Copy text={"Install the Draw Tree skill: create the folder ~/.claude/skills/drawtree and move ~/Downloads/SKILL.md into it."} />
+            </div>
+            <p className="text-[11px] text-emerald-900">
+              After Claude says it&apos;s done, run{" "}
+              <code>/skills</code> in Claude Code to verify, or just say
+              &ldquo;use the drawtree skill…&rdquo;.
+            </p>
+          </div>
+
+          {/* SECONDARY — manual terminal install (no Claude needed) */}
+          <details className="text-[12px]">
+            <summary className="cursor-pointer hover:text-ink">
+              Prefer to run it in your own terminal? →
+            </summary>
+            <div className="mt-2 space-y-2 pl-3 border-l-2 border-line">
+              <p>
+                Run this in your <strong>regular terminal</strong> (not
+                inside Claude Code) — your shell has full network access:
+              </p>
+              <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+{`mkdir -p ~/.claude/skills/drawtree && \\
+  curl -L https://drawtree.capital${SKILL_MD_URL} \\
   -o ~/.claude/skills/drawtree/SKILL.md`}
-          </pre>
-          <p className="text-[11px]">
-            Then run <code>/skills</code> in Claude Code to confirm it
-            loaded, or just say &ldquo;Use the drawtree skill…&rdquo;.
-          </p>
-          <DownloadRow
-            href={SKILL_MD_URL}
-            filename="SKILL.md"
-            label="Download SKILL.md (manual install)"
-          />
+              </pre>
+              <div className="flex justify-end">
+                <Copy
+                  text={`mkdir -p ~/.claude/skills/drawtree && curl -L https://drawtree.capital${SKILL_MD_URL} -o ~/.claude/skills/drawtree/SKILL.md`}
+                  label="Copy command"
+                />
+              </div>
+            </div>
+          </details>
         </div>
       );
 
     case "codex":
       return (
-        <div className="text-sm space-y-3 text-muted">
+        <div className="text-sm space-y-4 text-muted">
           <p>
-            Codex CLI auto-loads <code>AGENTS.md</code> files from your
-            Codex home or the current project root. No special command —
-            just drop the file.
+            Codex CLI auto-loads <code>AGENTS.md</code> from your Codex
+            home or any project root. Same caveat as Claude Code — the
+            sandboxed AI can&apos;t reach <code>drawtree.capital</code>,
+            so download in your browser and ask Codex to install it.
           </p>
-          <ol className="list-decimal list-inside space-y-2">
-            <li>
-              Save the AGENTS.md to your Codex home (applies to every
-              session):
-            </li>
-          </ol>
-          <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
-{`mkdir -p ~/.codex
-curl -L https://drawtree.capital${AGENTS_MD_URL} \\
+
+          {/* PRIMARY — one-click browser download + paste prompt */}
+          <div className="border border-emerald-300 bg-emerald-50/40 rounded p-3 space-y-2">
+            <div className="text-[10px] uppercase tracking-wider text-emerald-800 font-medium">
+              ✨ Recommended — two clicks
+            </div>
+            <ol className="list-decimal list-inside space-y-1 text-[13px]">
+              <li>Click <strong>Download AGENTS.md</strong> below.</li>
+              <li>
+                In Codex, paste the one-line prompt below and hit enter.
+                Codex installs it for you.
+              </li>
+            </ol>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <DownloadRow
+                href={AGENTS_MD_URL}
+                filename="AGENTS.md"
+                label="Download AGENTS.md"
+              />
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <code className="flex-1 text-[11px] font-mono bg-white border border-emerald-200 rounded px-2 py-1.5">
+                Install the Draw Tree agent instructions: create the folder ~/.codex and move ~/Downloads/AGENTS.md into it.
+              </code>
+              <Copy text={"Install the Draw Tree agent instructions: create the folder ~/.codex and move ~/Downloads/AGENTS.md into it."} />
+            </div>
+            <p className="text-[11px] text-emerald-900">
+              Start a fresh Codex session afterwards — the new AGENTS.md
+              is picked up at session start.
+            </p>
+          </div>
+
+          {/* SECONDARY — manual terminal install */}
+          <details className="text-[12px]">
+            <summary className="cursor-pointer hover:text-ink">
+              Prefer your own terminal? →
+            </summary>
+            <div className="mt-2 space-y-2 pl-3 border-l-2 border-line">
+              <p>
+                Run this in your regular shell (not inside Codex) where
+                network access is unrestricted:
+              </p>
+              <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+{`mkdir -p ~/.codex && \\
+  curl -L https://drawtree.capital${AGENTS_MD_URL} \\
   -o ~/.codex/AGENTS.md`}
-          </pre>
-          <p className="text-[11px]">
-            Per-project alternative: drop the same file at{" "}
-            <code>&lt;project-root&gt;/AGENTS.md</code>. Codex merges
-            global + project files automatically.
-          </p>
-          <DownloadRow
-            href={AGENTS_MD_URL}
-            filename="AGENTS.md"
-            label="Download AGENTS.md (manual install)"
-          />
+              </pre>
+              <div className="flex justify-end">
+                <Copy
+                  text={`mkdir -p ~/.codex && curl -L https://drawtree.capital${AGENTS_MD_URL} -o ~/.codex/AGENTS.md`}
+                  label="Copy command"
+                />
+              </div>
+              <p className="text-[11px]">
+                Per-project alternative: place the same file at{" "}
+                <code>&lt;project-root&gt;/AGENTS.md</code> — Codex
+                merges global + project automatically.
+              </p>
+            </div>
+          </details>
         </div>
       );
 
