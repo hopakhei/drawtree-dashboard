@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 // Shared renderer that takes a normalized Draw Tree framework (assembled
 // either from /v1/account/draft/{id} or /v1/trees/{id}/payload) and shows
@@ -109,13 +110,21 @@ export type FrameworkData = {
   verdict?: any; // committed tree top-level verdict
 };
 
-const VERDICT_BADGE: Record<string, { icon: string; color: string; label: string }> = {
-  validated:                   { icon: "✅", color: "text-emerald-700 bg-emerald-50 border-emerald-200", label: "Validated" },
-  trending_positive:           { icon: "🟢", color: "text-emerald-600 bg-emerald-50/60 border-emerald-200", label: "Trending positive" },
-  inconclusive:                { icon: "⚪", color: "text-muted bg-paper border-line", label: "Inconclusive" },
-  trending_negative:           { icon: "🟠", color: "text-orange-700 bg-orange-50 border-orange-200", label: "Trending negative" },
-  approaching_falsification:   { icon: "🟡", color: "text-amber-700 bg-amber-50 border-amber-200", label: "Approaching falsification" },
-  falsified:                   { icon: "✗", color: "text-red-700 bg-red-50 border-red-200", label: "Falsified" },
+type VerdictState =
+  | "validated"
+  | "trending_positive"
+  | "inconclusive"
+  | "trending_negative"
+  | "approaching_falsification"
+  | "falsified";
+
+const VERDICT_BADGE: Record<string, { icon: string; color: string }> = {
+  validated:                   { icon: "✅", color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  trending_positive:           { icon: "🟢", color: "text-emerald-600 bg-emerald-50/60 border-emerald-200" },
+  inconclusive:                { icon: "⚪", color: "text-muted bg-paper border-line" },
+  trending_negative:           { icon: "🟠", color: "text-orange-700 bg-orange-50 border-orange-200" },
+  approaching_falsification:   { icon: "🟡", color: "text-amber-700 bg-amber-50 border-amber-200" },
+  falsified:                   { icon: "✗", color: "text-red-700 bg-red-50 border-red-200" },
 };
 
 // Map emoji-prefixed verdict strings (e.g. "⚪ Inconclusive",
@@ -172,11 +181,14 @@ function ConvictionBadge({
   pack?: ConvictionPack;
   compact?: boolean;
 }) {
+  const { m, locale } = useI18n();
   if (!pack || typeof pack.score !== "number") return null;
   const tone = convictionTone(pack.score);
   const pct = Math.round(pack.score * 100);
   const glyph = pack.badge || "";
-  const label = pack.label || "Conviction";
+  const label =
+    (locale === "zh" ? pack.label_zh || pack.label : pack.label) ||
+    m.framework.conviction;
   if (compact) {
     return (
       <span className={`text-[11px] px-1.5 py-0.5 rounded border ${tone}`}>
@@ -192,11 +204,12 @@ function ConvictionBadge({
 }
 
 function VerdictBadge({ verdict }: { verdict?: any }) {
+  const { m } = useI18n();
   const raw = extractVerdictString(verdict);
   if (!raw) return null;
   const key = normalizeVerdictKey(raw);
-  const m = VERDICT_BADGE[key];
-  if (!m) {
+  const badge = VERDICT_BADGE[key];
+  if (!badge) {
     return (
       <span className="text-xs px-2 py-0.5 rounded border border-line text-muted">
         {raw.slice(0, 40)}
@@ -204,8 +217,8 @@ function VerdictBadge({ verdict }: { verdict?: any }) {
     );
   }
   return (
-    <span className={`text-xs px-2 py-0.5 rounded border ${m.color}`}>
-      {m.icon} {m.label}
+    <span className={`text-xs px-2 py-0.5 rounded border ${badge.color}`}>
+      {badge.icon} {m.framework.verdicts[key as VerdictState]}
     </span>
   );
 }
@@ -224,7 +237,7 @@ function getLeafVerdict(leaf: Leaf): any {
 
 // Aggregate counts of verdict states across a branch's leaves so we can show
 // a 2/0/3/... summary chip at the branch header.
-function summarizeBranchVerdicts(leaves: Leaf[]): { state: string; count: number; label: string; icon: string }[] {
+function summarizeBranchVerdicts(leaves: Leaf[]): { state: string; count: number; icon: string }[] {
   const counts: Record<string, number> = {};
   for (const l of leaves) {
     const raw = extractVerdictString(getLeafVerdict(l));
@@ -253,7 +266,6 @@ function summarizeBranchVerdicts(leaves: Leaf[]): { state: string; count: number
     .map((k) => ({
       state: k,
       count: counts[k],
-      label: VERDICT_BADGE[k].label,
       icon: VERDICT_BADGE[k].icon,
     }));
 }
@@ -275,6 +287,7 @@ function LeafCard({
   apiKey?: string;
   onChanged?: () => void;
 }) {
+  const { m } = useI18n();
   const [open, setOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [busy, setBusy] = useState<null | string>(null);
@@ -320,7 +333,7 @@ function LeafCard({
       setManualSnippet("");
       onChanged?.();
     } catch (e: any) {
-      setEditorErr(`Add failed: ${e?.message || "unknown"}`);
+      setEditorErr(m.framework.addFailed(e?.message || "unknown"));
     } finally {
       setBusy(null);
     }
@@ -336,7 +349,7 @@ function LeafCard({
     // fetch before the request is even sent.
     const cleanKey = (apiKey || "").trim();
     if (!cleanKey) {
-      setEditorErr("Not signed in. Open /account and sign in first.");
+      setEditorErr(m.framework.notSignedInLeaf);
       setBusy(null);
       return;
     }
@@ -349,21 +362,17 @@ function LeafCard({
         headers: { Authorization: `Bearer ${cleanKey}` },
       });
       if (ping.status === 401) {
-        setEditorErr(
-          "Session expired. Open /account and sign in again with a new magic link.",
-        );
+        setEditorErr(m.framework.sessionExpired);
         setBusy(null);
         return;
       }
       if (!ping.ok && ping.status !== 402) {
-        setEditorErr(`Pre-flight check failed (HTTP ${ping.status}). The server may be in a bad state — try again in 30s.`);
+        setEditorErr(m.framework.preflightFailed(ping.status));
         setBusy(null);
         return;
       }
     } catch (pingErr: any) {
-      setEditorErr(
-        `Can't reach the API server at all (${pingErr?.message || "network error"}). The Render instance may be asleep — wait 15s and try again.`,
-      );
+      setEditorErr(m.framework.cantReachApi(pingErr?.message || "network error"));
       setBusy(null);
       return;
     }
@@ -404,15 +413,11 @@ function LeafCard({
         r = await attempt();
       }
       if (r.status === 401) {
-        setEditorErr(
-          "Session expired. Please sign in again from the account page.",
-        );
+        setEditorErr(m.framework.sessionExpiredShort);
         return;
       }
       if (r.status === 402) {
-        setEditorErr(
-          "Not enough credits. Top up from the account page.",
-        );
+        setEditorErr(m.framework.notEnoughCredits);
         return;
       }
       if (!r.ok) {
@@ -422,22 +427,16 @@ function LeafCard({
       }
       const d = await r.json();
       if (d.ok === false) {
-        setEditorErr(
-          "No public coverage found yet. Try adding a citation manually below.",
-        );
+        setEditorErr(m.framework.noCoverage);
       }
       onChanged?.();
     } catch (e: any) {
       if (e?.name === "AbortError") {
-        setEditorErr(
-          "Search took too long (>120s). Try again — the search may have actually succeeded server-side; refresh to check.",
-        );
+        setEditorErr(m.framework.searchTimeout);
       } else if (e?.message === "Failed to fetch" || e?.name === "TypeError") {
-        setEditorErr(
-          "The server dropped the connection twice. The Render free instance may have crashed — wait 30s and try again. If this keeps happening, the search is timing out server-side; try manual citation entry below.",
-        );
+        setEditorErr(m.framework.connectionDropped);
       } else {
-        setEditorErr(`Fetch failed: ${e?.message || "unknown"}`);
+        setEditorErr(m.framework.fetchFailed(e?.message || "unknown"));
       }
     } finally {
       setBusy(null);
@@ -446,7 +445,7 @@ function LeafCard({
 
   async function deleteUrl(url: string) {
     if (!canEdit) return;
-    if (!confirm("Remove this evidence row?")) return;
+    if (!confirm(m.framework.removeConfirm)) return;
     setBusy("delete");
     setEditorErr(null);
     try {
@@ -469,7 +468,7 @@ function LeafCard({
       }
       onChanged?.();
     } catch (e: any) {
-      setEditorErr(`Delete failed: ${e?.message || "unknown"}`);
+      setEditorErr(m.framework.deleteFailed(e?.message || "unknown"));
     } finally {
       setBusy(null);
     }
@@ -490,11 +489,11 @@ function LeafCard({
         <div className="flex-1 min-w-0">
           <div className="text-sm">
             <span className="text-muted mr-2 text-xs">{leaf.id || ""}</span>
-            {leaf.hypothesis || leaf.question || "(no hypothesis text)"}
+            {leaf.hypothesis || leaf.question || m.framework.noHypothesisText}
           </div>
           {fHuman && (
             <div className="text-xs text-muted mt-0.5 truncate">
-              Falsify if: <code className="text-[11px]">{fHuman}</code>
+              {m.framework.falsifyIf} <code className="text-[11px]">{fHuman}</code>
             </div>
           )}
         </div>
@@ -504,13 +503,13 @@ function LeafCard({
         <div className="px-4 py-3 border-t border-line text-sm space-y-2 bg-paper">
           {leaf.hypothesis && (
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted">假設</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted">{m.framework.hypothesis}</div>
               <div>{leaf.hypothesis}</div>
             </div>
           )}
           {dataPoints.length > 0 && (
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted">數據</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted">{m.framework.dataPoints}</div>
               <ul className="list-disc list-inside text-sm space-y-0.5">
                 {dataPoints.slice(0, 8).map((d: any, i: number) => (
                   <li key={i}>
@@ -526,19 +525,19 @@ function LeafCard({
           )}
           {leaf.conclusion && (
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted">結論</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted">{m.framework.conclusion}</div>
               <div>{leaf.conclusion}</div>
             </div>
           )}
           {fHuman && (
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted">證偽條件</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted">{m.framework.falsificationCondition}</div>
               <code className="text-xs">{fHuman}</code>
             </div>
           )}
           {leaf.notes && (
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted">註釋</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted">{m.framework.notes}</div>
               <div className="text-muted">{leaf.notes}</div>
             </div>
           )}
@@ -546,19 +545,19 @@ function LeafCard({
           {(evidenceArr.length > 0 || canEdit) && (
             <div className="pt-2 mt-2 border-t border-line">
               <div className="text-[11px] uppercase tracking-wider text-muted mb-1 flex items-center justify-between">
-                <span>證據 · evidence ({evidenceArr.length})</span>
+                <span>{m.framework.evidence(evidenceArr.length)}</span>
                 {canEdit && (
                   <button
                     onClick={() => setEditorOpen((v) => !v)}
                     className="text-[11px] underline-offset-2 hover:underline normal-case font-normal"
                   >
-                    {editorOpen ? "Close" : "+ Add / refresh"}
+                    {editorOpen ? m.framework.close : m.framework.addRefresh}
                   </button>
                 )}
               </div>
               {evidenceArr.length === 0 && (
                 <div className="text-xs text-muted italic">
-                  No evidence rows yet.
+                  {m.framework.noEvidenceYet}
                 </div>
               )}
               <ul className="space-y-1">
@@ -578,7 +577,7 @@ function LeafCard({
                           rel="noopener noreferrer"
                           className="underline"
                         >
-                          source ↗
+                          {m.framework.source}
                         </a>
                       )}
                       {canEdit && e?.url && (
@@ -587,7 +586,7 @@ function LeafCard({
                           disabled={busy === "delete"}
                           className="text-red-700 hover:underline ml-auto disabled:opacity-50"
                         >
-                          remove
+                          {m.framework.remove}
                         </button>
                       )}
                     </div>
@@ -603,13 +602,11 @@ function LeafCard({
                       className="w-full px-3 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
                     >
                       {busy === "auto"
-                        ? "Fetching evidence…"
-                        : "✨ Auto-fetch evidence (2 credits)"}
+                        ? m.framework.fetchingEvidence
+                        : m.framework.autoFetch}
                     </button>
                     <p className="text-[11px] text-muted mt-1.5">
-                      Searches across public earnings transcripts, news, and
-                      sell-side coverage based on this leaf's hypothesis and
-                      metric. Results are sanitized and attached automatically.
+                      {m.framework.autoFetchNote}
                     </p>
                   </div>
                   <div className="pt-2 border-t border-line">
@@ -618,8 +615,8 @@ function LeafCard({
                       className="text-[11px] text-muted underline-offset-2 hover:underline"
                     >
                       {showManual
-                        ? "− Hide manual entry"
-                        : "+ Add a specific citation by hand"}
+                        ? m.framework.hideManual
+                        : m.framework.showManual}
                     </button>
                   </div>
                   {showManual && (
@@ -635,13 +632,13 @@ function LeafCard({
                         type="text"
                         value={manualTitle}
                         onChange={(e) => setManualTitle(e.target.value)}
-                        placeholder="Title (optional)"
+                        placeholder={m.framework.titleOptional}
                         className="w-full px-2 py-1 text-xs border border-line rounded"
                       />
                       <textarea
                         value={manualSnippet}
                         onChange={(e) => setManualSnippet(e.target.value)}
-                        placeholder="Snippet / quote (optional)"
+                        placeholder={m.framework.snippetOptional}
                         rows={2}
                         className="w-full px-2 py-1 text-xs border border-line rounded"
                       />
@@ -650,7 +647,7 @@ function LeafCard({
                         disabled={busy === "manual" || !manualUrl.trim()}
                         className="px-3 py-1 text-xs border border-line rounded hover:bg-line/40 disabled:opacity-50"
                       >
-                        {busy === "manual" ? "Adding…" : "Add citation"}
+                        {busy === "manual" ? m.framework.adding : m.framework.addCitation}
                       </button>
                     </div>
                   )}
@@ -684,6 +681,7 @@ function BranchSection({
   apiKey?: string;
   onChanged?: () => void;
 }) {
+  const { m } = useI18n();
   const [open, setOpen] = useState(true);
   const label = branch.caption || branch.label || branch.id;
   const branchSummary = summarizeBranchVerdicts(leaves);
@@ -704,7 +702,7 @@ function BranchSection({
           )}
           {(branch.framework?.primary || branch.framework?.name) && (
             <div className="text-[11px] text-muted mt-0.5">
-              Framework:{" "}
+              {m.framework.frameworkLabel}{" "}
               <code>{branch.framework.primary || branch.framework.name}</code>
               {Array.isArray(branch.framework.supporting) &&
                 branch.framework.supporting.length > 0 && (
@@ -734,14 +732,14 @@ function BranchSection({
               {branch.conviction && <ConvictionBadge pack={branch.conviction} compact />}
               {typeof branch.weight === "number" && (
                 <span className="text-[11px] px-1.5 py-0.5 rounded border text-muted border-line">
-                  weight {Math.round(branch.weight * 100)}%
+                  {m.framework.weight(Math.round(branch.weight * 100))}
                 </span>
               )}
             </div>
           )}
         </div>
         <span className="text-xs text-muted shrink-0">
-          {leaves.length} leaf{leaves.length === 1 ? "" : "s"}
+          {m.framework.leafCount(leaves.length)}
         </span>
       </button>
       {open && leaves.length > 0 && (
@@ -762,7 +760,7 @@ function BranchSection({
       )}
       {open && leaves.length === 0 && (
         <div className="border-t border-line p-3 text-xs text-muted">
-          No leaves saved yet for this branch.
+          {m.framework.noLeavesYet}
         </div>
       )}
     </section>
@@ -770,6 +768,7 @@ function BranchSection({
 }
 
 function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
+  const { m, locale } = useI18n();
   // scenarios may legitimately be {} or have non-dict bull/base/bear. Guard.
   const safe = (scenarios as any) || {};
   const pick = (k: string) => {
@@ -787,7 +786,7 @@ function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
   if (!hasAny) {
     return (
       <div className="text-sm text-muted">
-        Scenarios scaffolded but not yet computed.{scenarios.method ? ` Method: ${scenarios.method}.` : ""}
+        {m.framework.scenariosNotComputed(scenarios.method)}
       </div>
     );
   }
@@ -803,7 +802,7 @@ function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-sm">
               <span className="mr-2">🎯</span>
-              <span className="font-medium">Expected (conviction-weighted)</span>
+              <span className="font-medium">{m.framework.expectedWeighted}</span>
               <span className="ml-2">${expected.value}</span>
             </div>
             {typeof expected.gain_pct === "number" && (
@@ -823,16 +822,18 @@ function ScenarioBlock({ scenarios }: { scenarios: Scenarios }) {
           </div>
           {(expected.label || typeof expected.score === "number") && (
             <div className="text-[11px] text-muted mt-1">
-              {expected.badge || ""} {expected.label || "Conviction"}
+              {expected.badge || ""}{" "}
+              {(locale === "zh" ? expected.label_zh || expected.label : expected.label) ||
+                m.framework.conviction}
               {typeof expected.score === "number" && (
-                <> · {Math.round(expected.score * 100)}% root conviction</>
+                <> · {m.framework.rootConviction(Math.round(expected.score * 100))}</>
               )}
             </div>
           )}
         </div>
       )}
       {scenarios.current_price !== undefined && (
-        <div className="text-xs text-muted mb-1">Current price: ${scenarios.current_price}</div>
+        <div className="text-xs text-muted mb-1">{m.framework.currentPrice(scenarios.current_price)}</div>
       )}
       {tiers.map((t) => {
         if (!t.data) return null;
@@ -890,6 +891,7 @@ export default function FrameworkView({
   apiKey?: string;
   onChanged?: () => void;
 }) {
+  const { m } = useI18n();
   const branches = Array.isArray(data?.branches) ? data.branches : [];
   const leavesByBranch =
     data?.leaves_by_branch && typeof data.leaves_by_branch === "object"
@@ -909,18 +911,18 @@ export default function FrameworkView({
       {/* H-0 */}
       <section className="border border-line rounded p-5">
         <div className="text-xs uppercase tracking-wider text-muted mb-2">
-          H-0 · root hypothesis
+          {m.framework.h0Label}
         </div>
         {data.h0?.text ? (
           <p className="text-base leading-relaxed">{data.h0.text}</p>
         ) : (
-          <p className="text-sm text-muted">H-0 not yet defined.</p>
+          <p className="text-sm text-muted">{m.framework.h0NotDefined}</p>
         )}
         {data.h0?.metadata && (
           <div className="text-xs text-muted mt-3 flex flex-wrap gap-x-4 gap-y-1">
             {data.h0.metadata.framework_from && (
               <span>
-                From: <code>{data.h0.metadata.framework_from}</code>
+                {m.framework.fromLabel} <code>{data.h0.metadata.framework_from}</code>
               </span>
             )}
             {data.h0.metadata.framework_to && (
@@ -929,7 +931,7 @@ export default function FrameworkView({
               </span>
             )}
             {data.h0.metadata.time_window && (
-              <span>Window: {data.h0.metadata.time_window}</span>
+              <span>{m.framework.windowLabel} {data.h0.metadata.time_window}</span>
             )}
           </div>
         )}
@@ -945,9 +947,9 @@ export default function FrameworkView({
       {branches.length > 0 && (
         <section>
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-lg">Branches</h2>
+            <h2 className="text-lg">{m.framework.branches}</h2>
             <span className="text-xs text-muted">
-              {branches.length} branch{branches.length === 1 ? "" : "es"}
+              {m.framework.branchCount(branches.length)}
             </span>
           </div>
           <div className="space-y-3">
@@ -975,7 +977,7 @@ export default function FrameworkView({
           </div>
           {data.mece_rationale && (
             <p className="text-xs text-muted mt-3">
-              <span className="uppercase tracking-wider">MECE rationale: </span>
+              <span className="uppercase tracking-wider">{m.framework.meceRationale}</span>
               {data.mece_rationale}
             </p>
           )}
@@ -985,7 +987,7 @@ export default function FrameworkView({
       {/* Scenarios */}
       {data.scenarios && (
         <section>
-          <h2 className="text-lg mb-3">3-Scenario valuation</h2>
+          <h2 className="text-lg mb-3">{m.framework.scenariosTitle}</h2>
           <ScenarioBlock scenarios={data.scenarios} />
         </section>
       )}
@@ -993,7 +995,7 @@ export default function FrameworkView({
       {/* Narrative versions */}
       {versions && (
         <section className="border border-line rounded p-5">
-          <h2 className="text-lg mb-3">Narrative archaeology</h2>
+          <h2 className="text-lg mb-3">{m.framework.narrativeTitle}</h2>
           <pre className="text-xs whitespace-pre-wrap break-words text-muted">
             {JSON.stringify(versions, null, 2)}
           </pre>

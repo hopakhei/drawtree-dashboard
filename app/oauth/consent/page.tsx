@@ -20,17 +20,19 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 // Next.js 14 requires useSearchParams() consumers to be wrapped in a
 // Suspense boundary so static-prerender doesn't blow up. We split the
 // component into an inner client component (uses the hook) plus a
 // default export that wraps it in Suspense.
 export default function ConsentPage() {
+  const { m } = useI18n();
   return (
     <Suspense
       fallback={
         <main className="max-w-md mx-auto px-6 py-14">
-          <p className="text-sm text-muted">Loading authorization request…</p>
+          <p className="text-sm text-muted">{m.consent.loadingRequest}</p>
         </main>
       }
     >
@@ -41,28 +43,18 @@ export default function ConsentPage() {
 
 const API_URL = "https://drawtree-api.onrender.com";
 
-const SCOPE_DESCRIPTIONS: Record<string, { label: string; tagline: string }> = {
-  "drawtree:read": {
-    label: "Read your trees",
-    tagline:
-      "Browse committed trees, view verdicts, conviction, and scenario prices.",
-  },
-  "drawtree:write": {
-    label: "Create and edit drafts",
-    tagline:
-      "Open new research drafts, save framework + leaves, commit trees, and trigger Phase 2 research (costs credits).",
-  },
-  "drawtree:monitor": {
-    label: "Change monitoring frequency",
-    tagline:
-      "Set weekly / daily / off cadence on a committed tree. Recurring credit cost.",
-  },
+// Maps supported scope strings to keys in m.consent.scopes.
+const SCOPE_KEYS: Record<string, "read" | "write" | "monitor"> = {
+  "drawtree:read": "read",
+  "drawtree:write": "write",
+  "drawtree:monitor": "monitor",
 };
 
 function ConsentInner() {
+  const { m } = useI18n();
   const qs = useSearchParams();
   const clientId       = qs.get("client_id")             || "";
-  const clientName     = qs.get("client_name")           || "An MCP client";
+  const clientName     = qs.get("client_name")           || m.consent.defaultClientName;
   const logoUri        = qs.get("logo_uri")              || "";
   const redirectUri    = qs.get("redirect_uri")          || "";
   const requestedScope = qs.get("scope")                 || "";
@@ -78,7 +70,7 @@ function ConsentInner() {
       (requestedScope || "")
         .split(/\s+/)
         .map((s) => s.trim())
-        .filter((s) => s && SCOPE_DESCRIPTIONS[s]),
+        .filter((s) => s && SCOPE_KEYS[s]),
     [requestedScope],
   );
 
@@ -141,7 +133,7 @@ function ConsentInner() {
       .map(([k]) => k)
       .join(" ");
     if (!scopeGranted) {
-      setErr("Pick at least one permission, or click Deny to cancel.");
+      setErr(m.consent.pickOne);
       return;
     }
     setBusy(true);
@@ -168,7 +160,7 @@ function ConsentInner() {
         setErr(
           body?.detail?.error_description ||
             body?.detail?.error ||
-            `Approval failed (${r.status}).`,
+            m.consent.approvalFailed(r.status),
         );
         setBusy(false);
         return;
@@ -176,14 +168,14 @@ function ConsentInner() {
       // Server returns the URL we should send the user back to.
       window.location.href = body.redirect_to;
     } catch (e: any) {
-      setErr(e?.message || "Network error during approval.");
+      setErr(e?.message || m.consent.approvalNetwork);
       setBusy(false);
     }
   }
 
   async function requestCode() {
     if (!signInEmail.includes("@")) {
-      setSignInErr("Please enter a valid email.");
+      setSignInErr(m.signin.invalidEmail);
       return;
     }
     setSignInBusy(true);
@@ -196,9 +188,7 @@ function ConsentInner() {
       });
       const body = await r.json();
       if (body?.unknown_email) {
-        setSignInErr(
-          "That email isn't registered. Sign up at drawtree.capital/signup first.",
-        );
+        setSignInErr(m.signin.notRegisteredConsent);
         setSignInBusy(false);
         return;
       }
@@ -206,7 +196,7 @@ function ConsentInner() {
       // the user can hit 'resend' from there.
       setSignInStage("code");
     } catch (e: any) {
-      setSignInErr(e?.message || "Network error sending code.");
+      setSignInErr(e?.message || m.signin.networkSend);
     }
     setSignInBusy(false);
   }
@@ -214,7 +204,7 @@ function ConsentInner() {
   async function verifyCode() {
     const cleaned = signInCode.replace(/\D/g, "");
     if (cleaned.length !== 6) {
-      setSignInErr("The code is 6 digits.");
+      setSignInErr(m.signin.codeIs6Digits);
       return;
     }
     setSignInBusy(true);
@@ -232,11 +222,11 @@ function ConsentInner() {
       if (!r.ok) {
         const c = body?.detail?.code || "";
         const msg =
-          c === "INVALID_CODE"        ? "That code doesn't match. Double-check the latest email." :
-          c === "CODE_ALREADY_USED"   ? "That code was already used. Request a new one." :
-          c === "CODE_EXPIRED"        ? "That code has expired. Request a new one." :
-          c === "INVALID_CODE_FORMAT" ? "The code must be 6 digits." :
-          `Sign-in failed (${r.status}).`;
+          c === "INVALID_CODE"        ? m.signin.codeMismatch :
+          c === "CODE_ALREADY_USED"   ? m.signin.codeUsed :
+          c === "CODE_EXPIRED"        ? m.signin.codeExpired :
+          c === "INVALID_CODE_FORMAT" ? m.signin.codeFormat :
+          m.signin.signInFailed(r.status);
         setSignInErr(msg);
         setSignInBusy(false);
         return;
@@ -250,7 +240,7 @@ function ConsentInner() {
       setAgentEmail(body.email);
       setSignInBusy(false);
     } catch (e: any) {
-      setSignInErr(e?.message || "Network error verifying code.");
+      setSignInErr(e?.message || m.signin.networkVerify);
       setSignInBusy(false);
     }
   }
@@ -274,11 +264,10 @@ function ConsentInner() {
           href="/account"
           className="text-xs text-muted underline-offset-4 hover:underline"
         >
-          ← My account
+          {m.common.backToAccount}
         </Link>
         <div className="mt-6 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
-          This authorization request is missing required parameters. Try
-          starting the connection from your AI client again.
+          {m.consent.missingParams}
         </div>
       </main>
     );
@@ -288,7 +277,7 @@ function ConsentInner() {
   if (!signInChecked) {
     return (
       <main className="max-w-md mx-auto px-6 py-14">
-        <p className="text-sm text-muted">Checking sign-in…</p>
+        <p className="text-sm text-muted">{m.consent.checkingSignIn}</p>
       </main>
     );
   }
@@ -303,25 +292,24 @@ function ConsentInner() {
           href="/account"
           className="text-xs text-muted underline-offset-4 hover:underline"
         >
-          ← My account
+          {m.common.backToAccount}
         </Link>
 
         <div className="mt-6 border border-line rounded p-6">
           <div className="text-xs uppercase tracking-wider text-muted">
-            Authorize connection
+            {m.consent.authorizeConnection}
           </div>
           <div className="text-lg font-medium mt-1">
-            Sign in to approve {clientName}
+            {m.consent.signInToApprove(clientName)}
           </div>
           <p className="text-xs text-muted mt-2">
-            We&apos;ll email you a 6-digit code. Type it here so you
-            don&apos;t lose this approval page.
+            {m.consent.signInNote}
           </p>
 
           {signInStage === "email" ? (
             <div className="mt-5 space-y-3">
               <label className="block">
-                <span className="text-xs text-muted">Email</span>
+                <span className="text-xs text-muted">{m.consent.emailLabel}</span>
                 <input
                   type="email"
                   inputMode="email"
@@ -331,7 +319,7 @@ function ConsentInner() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !signInBusy) requestCode();
                   }}
-                  placeholder="you@example.com"
+                  placeholder={m.signup.emailPlaceholder}
                   className="w-full mt-1 px-3 py-2 text-sm border border-line rounded focus:outline-none focus:border-ink"
                 />
               </label>
@@ -340,17 +328,16 @@ function ConsentInner() {
                 disabled={signInBusy || !signInEmail}
                 className="w-full px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
               >
-                {signInBusy ? "Sending…" : "Email me a 6-digit code"}
+                {signInBusy ? m.signin.sending : m.consent.emailMe6Digit}
               </button>
             </div>
           ) : (
             <div className="mt-5 space-y-3">
               <div className="text-xs text-muted">
-                Code sent to <strong className="text-ink">{signInEmail}</strong>.
-                Check your inbox (and spam) for a 6-digit code.
+                {m.consent.codeSent(signInEmail)}
               </div>
               <label className="block">
-                <span className="text-xs text-muted">6-digit code</span>
+                <span className="text-xs text-muted">{m.consent.codeLabel}</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -362,7 +349,7 @@ function ConsentInner() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !signInBusy) verifyCode();
                   }}
-                  placeholder="123 456"
+                  placeholder={m.signin.codePlaceholder}
                   className="w-full mt-1 px-3 py-2 text-lg font-mono tracking-widest text-center border border-line rounded focus:outline-none focus:border-ink"
                 />
               </label>
@@ -371,7 +358,7 @@ function ConsentInner() {
                 disabled={signInBusy || signInCode.replace(/\D/g, "").length !== 6}
                 className="w-full px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
               >
-                {signInBusy ? "Verifying…" : "Sign in & continue"}
+                {signInBusy ? m.signin.verifying : m.consent.signInContinue}
               </button>
               <div className="flex items-center justify-between text-[11px] text-muted">
                 <button
@@ -383,7 +370,7 @@ function ConsentInner() {
                   className="underline-offset-4 hover:underline"
                   disabled={signInBusy}
                 >
-                  ← Change email
+                  {m.signin.changeEmail}
                 </button>
                 <button
                   onClick={() => {
@@ -393,7 +380,7 @@ function ConsentInner() {
                   className="underline-offset-4 hover:underline"
                   disabled={signInBusy}
                 >
-                  Resend code
+                  {m.signin.resendCode}
                 </button>
               </div>
             </div>
@@ -415,7 +402,7 @@ function ConsentInner() {
         href="/account"
         className="text-xs text-muted underline-offset-4 hover:underline"
       >
-        ← My account
+        {m.common.backToAccount}
       </Link>
 
       <div className="mt-6 border border-line rounded p-6">
@@ -429,40 +416,38 @@ function ConsentInner() {
           )}
           <div>
             <div className="text-xs uppercase tracking-wider text-muted">
-              Authorize connection
+              {m.consent.authorizeConnection}
             </div>
             <div className="text-lg font-medium">
-              {clientName} wants to access your Draw Tree account
+              {m.consent.wantsAccess(clientName)}
             </div>
           </div>
         </div>
 
         {agentEmail && (
           <div className="text-xs text-muted mb-4">
-            Signed in as <strong className="text-ink">{agentEmail}</strong>.
-            Not you?{" "}
+            {m.consent.signedInAs(agentEmail)}
             <Link
               href="/account?signout=1"
               className="underline-offset-4 hover:underline"
             >
-              Sign out
+              {m.common.signOut}
             </Link>
             .
           </div>
         )}
 
         <div className="text-xs uppercase tracking-wider text-muted mt-4 mb-2">
-          Requested permissions
+          {m.consent.requestedPermissions}
         </div>
         <ul className="space-y-2">
           {requestedScopes.length === 0 && (
             <li className="text-sm text-muted">
-              The client did not request any specific permissions. We&apos;ll
-              grant <code>drawtree:read</code> by default.
+              {m.consent.noScopes}
             </li>
           )}
           {requestedScopes.map((s) => {
-            const meta = SCOPE_DESCRIPTIONS[s];
+            const meta = m.consent.scopes[SCOPE_KEYS[s]];
             return (
               <li key={s}>
                 <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -487,14 +472,14 @@ function ConsentInner() {
         </ul>
 
         <div className="text-[11px] text-muted mt-5 border-t border-line pt-3">
-          You can revoke this connection any time on{" "}
+          {m.consent.revokeNote}
           <Link
             href="/account"
             className="underline-offset-4 hover:underline"
           >
             /account
           </Link>
-          . Your existing MCP API key (<code>dt_</code>) is unaffected.
+          {m.consent.keyUnaffected}
         </div>
 
         {err && (
@@ -509,14 +494,14 @@ function ConsentInner() {
             disabled={busy}
             className="flex-1 px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? "Approving…" : "Approve"}
+            {busy ? m.consent.approving : m.consent.approve}
           </button>
           <button
             onClick={deny}
             disabled={busy}
             className="flex-1 px-4 py-2 text-sm border border-line rounded hover:bg-line/30 disabled:opacity-50"
           >
-            Deny
+            {m.consent.deny}
           </button>
         </div>
       </div>

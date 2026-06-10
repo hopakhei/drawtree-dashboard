@@ -1,10 +1,12 @@
 import { readTree, verdictEmoji, verdictPill } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getServerMessages } from "@/lib/i18n/server";
 
 export const revalidate = 60;
 
 export default async function TickerPage({ params }: { params: { ticker: string } }) {
+  const { m } = getServerMessages();
   const t = await readTree(params.ticker.toUpperCase());
   if (!t) notFound();
 
@@ -19,7 +21,7 @@ export default async function TickerPage({ params }: { params: { ticker: string 
   return (
     <main className="max-w-4xl mx-auto px-6 py-14">
       <Link href="/" className="text-xs text-muted underline-offset-4 hover:underline">
-        ← back
+        {m.common.back}
       </Link>
 
       <header className="mt-4 mb-10">
@@ -28,8 +30,8 @@ export default async function TickerPage({ params }: { params: { ticker: string 
           <span className="text-muted text-sm">{tree?.company}</span>
         </div>
         <div className="mt-2 text-xs text-muted">
-          published by <span className="text-ink">{t.agent_handle}</span> ·{" "}
-          {new Date(t.received_at).toLocaleString("en-CA")} · version{" "}
+          {m.ticker.publishedBy} <span className="text-ink">{t.agent_handle}</span> ·{" "}
+          {new Date(t.received_at).toLocaleString(m.common.dateLocale)} · {m.ticker.version}{" "}
           <span className="font-mono">{t.version_hash.slice(0, 12)}</span>
         </div>
       </header>
@@ -38,7 +40,7 @@ export default async function TickerPage({ params }: { params: { ticker: string 
       <section className="border border-line rounded p-6 mb-8">
         <div className="flex items-baseline justify-between flex-wrap gap-4">
           <div>
-            <div className="text-xs text-muted uppercase tracking-wider">H-0 verdict</div>
+            <div className="text-xs text-muted uppercase tracking-wider">{m.ticker.h0Verdict}</div>
             <span
               className={`mt-2 inline-block px-3 py-1 rounded text-base ${verdictPill(a?.h0_verdict || "")}`}
             >
@@ -46,11 +48,11 @@ export default async function TickerPage({ params }: { params: { ticker: string 
             </span>
           </div>
           <div className="text-right">
-            <div className="text-xs text-muted uppercase tracking-wider">Conviction</div>
+            <div className="text-xs text-muted uppercase tracking-wider">{m.ticker.conviction}</div>
             <div className="text-2xl tabular-nums">{a?.conviction?.toFixed(2) || "—"}</div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-muted uppercase tracking-wider">Expected return</div>
+            <div className="text-xs text-muted uppercase tracking-wider">{m.ticker.expectedReturn}</div>
             <div
               className={`text-2xl tabular-nums ${
                 a?.expected_return == null
@@ -78,7 +80,7 @@ export default async function TickerPage({ params }: { params: { ticker: string 
       {consensus.narrative && (
         <section className="mb-8">
           <h2 className="text-sm uppercase tracking-wider text-muted mb-3">
-            Frozen market consensus
+            {m.ticker.frozenConsensus}
           </h2>
           <p className="text-sm leading-relaxed">{consensus.narrative}</p>
           {consensus.implicit_assumptions?.length > 0 && (
@@ -93,7 +95,7 @@ export default async function TickerPage({ params }: { params: { ticker: string 
 
       {/* Branches */}
       <section className="mb-8">
-        <h2 className="text-sm uppercase tracking-wider text-muted mb-3">Branches</h2>
+        <h2 className="text-sm uppercase tracking-wider text-muted mb-3">{m.ticker.branches}</h2>
         <div className="space-y-3">
           {branches.map((b: any) => {
             const aggB = a?.branches?.find((x: any) => x.id === b.id);
@@ -139,7 +141,7 @@ export default async function TickerPage({ params }: { params: { ticker: string 
       {/* Valuation */}
       {valuation?.scenarios && (
         <section className="mb-8">
-          <h2 className="text-sm uppercase tracking-wider text-muted mb-3">Valuation</h2>
+          <h2 className="text-sm uppercase tracking-wider text-muted mb-3">{m.ticker.valuation}</h2>
           <div className="grid grid-cols-3 gap-3">
             {(["bull", "base", "bear"] as const).map((k) => {
               const s = valuation.scenarios[k];
@@ -160,7 +162,7 @@ export default async function TickerPage({ params }: { params: { ticker: string 
                       }`}
                     >
                       {dist >= 0 ? "+" : ""}
-                      {dist.toFixed(1)}% vs spot
+                      {dist.toFixed(1)}% {m.ticker.vsSpot}
                     </div>
                   )}
                   {prob != null && (
@@ -178,7 +180,9 @@ export default async function TickerPage({ params }: { params: { ticker: string 
       {/* Falsifications quick view */}
       <section className="mb-8">
         <h2 className="text-sm uppercase tracking-wider text-muted mb-3">
-          Kill conditions ({hyps.reduce((n: number, h: any) => n + (h.falsification?.length || 0), 0)})
+          {m.ticker.killConditions(
+            hyps.reduce((n: number, h: any) => n + (h.falsification?.length || 0), 0),
+          )}
         </h2>
         <div className="space-y-1 text-xs">
           {hyps.map((h: any) =>
@@ -206,7 +210,7 @@ export default async function TickerPage({ params }: { params: { ticker: string 
       </section>
 
       <footer className="mt-12 pt-6 border-t border-line text-xs text-muted">
-        Signed Ed25519 · server pubkey at{" "}
+        {m.ticker.signedFooter}{" "}
         <Link href="/api/server-pubkey" className="underline">
           /api/server-pubkey
         </Link>

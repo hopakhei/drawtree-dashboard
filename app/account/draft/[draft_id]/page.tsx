@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import FrameworkView, { FrameworkData } from "../../_components/FrameworkView";
 import ErrorBoundary from "../../_components/ErrorBoundary";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 const API_URL = "https://drawtree-api.onrender.com";
 
@@ -96,6 +97,7 @@ export default function DraftPage({
   params: { draft_id: string };
 }) {
   const { draft_id } = params;
+  const { m } = useI18n();
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [data, setData] = useState<FrameworkData | null>(null);
   const [rawStage, setRawStage] = useState<string>("");
@@ -107,7 +109,7 @@ export default function DraftPage({
       const k = sessionStorage.getItem("drawtree_api_key");
       if (k) setApiKey(k);
       else {
-        setError("Not signed in. Open /account first.");
+        setError(m.draft.notSignedIn);
         setLoading(false);
       }
     } catch {}
@@ -128,7 +130,7 @@ export default function DraftPage({
         setData(normalize(d));
       })
       .catch((e) =>
-        setError(`Failed to load draft (${e?.message || "unknown"})`)
+        setError(m.draft.loadFailed(e?.message || "unknown"))
       )
       .finally(() => setLoading(false));
   }, [apiKey, draft_id]);
@@ -141,10 +143,10 @@ export default function DraftPage({
         href="/account"
         className="text-xs text-muted underline-offset-4 hover:underline"
       >
-        ← My account
+        {m.common.backToAccount}
       </Link>
 
-      {loading && <p className="mt-6 text-sm text-muted">Loading draft…</p>}
+      {loading && <p className="mt-6 text-sm text-muted">{m.draft.loadingDraft}</p>}
       {error && (
         <div className="mt-6 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
           {error}
@@ -157,18 +159,18 @@ export default function DraftPage({
             <div className="flex items-baseline gap-3">
               <h1 className="text-3xl tracking-tight">{data.ticker}</h1>
               <span className="text-xs uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-                Draft
+                {m.draft.draftBadge}
               </span>
             </div>
             <p className="text-xs text-muted mt-2">
-              Stage:{" "}
+              {m.draft.stage}{" "}
               <code className="text-[11px]">
                 {rawStage.toLowerCase().replace(/_/g, " ")}
               </code>
               {nextTool && (
                 <>
                   {" "}
-                  · Next tool to call in your AI client:{" "}
+                  · {m.draft.nextTool}{" "}
                   <code className="text-[11px]">{nextTool}</code>
                 </>
               )}
@@ -177,7 +179,11 @@ export default function DraftPage({
               draft_id: {draft_id}
             </p>
           </header>
-          <ErrorBoundary label="Draft viewer">
+          <ErrorBoundary
+            label={m.draft.viewerLabel}
+            errorTitle={m.errorBoundary.hitAnError}
+            tryAgainLabel={m.errorBoundary.tryAgain}
+          >
             <FrameworkView
               data={data}
               draftId={draft_id}

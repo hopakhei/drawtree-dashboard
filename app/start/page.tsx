@@ -14,111 +14,18 @@
 //     so they never leave the page.
 //   - Signed in: pre-fills the API key, auto-mints (or shows) an
 //     OAuth client_id, and unlocks the starter-prompt step.
+//
+// All copy lives in lib/i18n/messages (en/zh); the starter prompt and
+// skill downloads are served in the visitor's locale.
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { Messages } from "@/lib/i18n/messages";
+import { getSystemPrompt } from "@/lib/skill_content";
 
 const API_URL  = "https://drawtree-api.onrender.com";
 const MCP_URL  = "https://drawtree-mcp.onrender.com/mcp";
-
-// Same starter prompt as before. Centralised here so we never have to
-// edit it in two places.
-const STARTER_PROMPT = `You have access to drawtree, a Create/View MCP server
-that helps users co-design falsifiable hypothesis trees one stage at a time,
-then run deep research on the tree as a single batched step. This is NOT a
-one-shot generator — you work WITH the user during Phase 1, then trigger a
-single deep-research job in Phase 2.
-
-HARD RULES:
-1. In Phase 1 (framework design) never chain stages. After every tool call,
-   present the result back to the user in plain language and ASK whether to
-   refine or proceed. Never call save_* until the user explicitly confirms.
-2. Preserve the user's terminology. Do not paraphrase.
-3. If sources conflict, add an open question. Never guess.
-4. Do not mention credit costs, balance, or charges to the user. They can
-   check their own balance at https://drawtree.capital/account.
-5. Each design_leaves call returns ONE branch only. Present that branch's
-   diagnostic axes first, wait for user confirmation, THEN propose 2-4
-   leaves for it. After save_leaves on that branch, call design_leaves
-   again with the next branch_id until all branches are saved.
-
-## ENTRY GATE — ALWAYS DO THIS FIRST
-
-When the user enters just a ticker (e.g. 'NVDA', '700.HK'), do NOT
-immediately call start_draft. Instead:
-
-1. Confirm the company name (e.g. 'NVDA = NVIDIA, Nasdaq?').
-2. Ask the user to pick ONE mode:
-     A. Create — build a new hypothesis tree from scratch. Begins with
-        market-narrative archaeology, then H-0, branches, leaves, scenarios.
-     B. View — look at trees already on this account. Call my_workspace()
-        first (returns drafts + trees together), then read_tree(tree_id) /
-        read_branch / read_history / propose_edit / apply_edit on whatever
-        the user picks. Never call read_tree(ticker=...) cold — drafts
-        that aren't committed yet won't be found.
-
-If Create, follow Phase 1 below. If View, follow View flow at the end.
-
-## PHASE 1 — Framework design (one stage at a time, free)
-
-  start_draft → confirm ticker
-  frame_narrative → present narrative archaeology → confirm → save_narrative
-  frame_h0 → present H-0 sentence + framework_from/to + time window
-           → confirm → save_h0
-  design_branches → read the lean 164-framework one-liner index + top-15
-                    scored shortlist
-                  → fetch_framework_details(draft_id,
-                       names=[...6-12 candidate frameworks...])
-                    in a SINGLE batched call to load each candidate's
-                    full common_pitfalls + diagnostic_axes (free, no
-                    rate limit, no stage advance)
-                  → walk the user through 3-4 MECE branches with their
-                    frameworks
-                  → confirm → save_branches
-  design_leaves(branch_id='A') → render Branch A's framework + diagnostic
-                                  axes, ask user to confirm the axes
-                                → propose 2-4 leaves (假設 + 證偽條件 only)
-                                → confirm → save_leaves({A: [...]})
-  Repeat design_leaves for branch B, C, ... until is_last_branch is true.
-  design_scenarios → walk through Bull / Base / Bear peer tiers
-                   → confirm → save_scenarios
-  preview_tree → confirm_framework (only after user approves the framework)
-
-confirm_framework charges a single flat Phase 2 bundle and unlocks Phase 2.
-
-## PHASE 2 — Deep research (server-side, one button)
-
-After confirm_framework, do NOT pause between steps.
-
-  research_phase2(draft_id, model='pro')
-    → Server starts a deep-research job covering all narrative
-      pillars and every leaf's falsification metric in one shot.
-      Returns immediately with a research_request_id and poll_after_seconds.
-
-  research_phase2_status(draft_id) every 30-60 seconds until
-    status='ingested'. Typical total time 60-180 seconds for 'pro' model.
-    If status='still_running' just wait and poll again. If status='failed'
-    surface the error_detail and ask the user whether to retry.
-
-  compute_scenarios(draft_id) — server fetches live peer prices, computes
-    Bull/Base/Bear implied per-share values.
-
-  commit_draft_tree(draft_id, visibility='private') — publish the tree.
-
-  summarize_tree(tree_id from commit_draft_tree) — render the final
-    10-section report. Present the FULL summarize_tree output to the user
-    as the conclusion. Then ask once: 'Set up weekly monitoring?'
-
-If research_phase2 or any later step fails, surface the error to the user
-and offer to retry. Earlier saved data is preserved.
-
-## VIEW FLOW (existing trees)
-
-  my_workspace (start here) → read_tree · read_branch · read_history ·
-  propose_edit (sandbox) · apply_edit ·
-  pause_monitoring · resume_monitoring · cancel_monitoring.
-
-Ask me for a ticker to begin.`;
 
 // Clients sorted by user popularity. Each entry knows whether it uses
 // OAuth (web clients that won't accept a static Bearer token) or a
@@ -134,11 +41,11 @@ type ClientKey =
 type ClientDef = {
   key: ClientKey;
   label: string;
-  tagline: string;
   authMode: "oauth" | "apikey";
   // Inline step-by-step rendered as JSX (so we can include code blocks
-  // with the user's actual key / client_id pre-filled).
-  body: (apiKey: string, clientId: string | null) => JSX.Element;
+  // with the user's actual key / client_id pre-filled). Receives the
+  // active message catalog so each client body renders in-locale.
+  body: (apiKey: string, clientId: string | null, m: Messages) => JSX.Element;
 };
 
 function MonoLine({ children }: { children: React.ReactNode }) {
@@ -153,163 +60,81 @@ const CLIENTS: ClientDef[] = [
   {
     key: "chatgpt",
     label: "ChatGPT",
-    tagline: "Web · OAuth",
     authMode: "oauth",
-    body: () => (
+    body: (_apiKey, _clientId, m) => (
       <ol className="text-sm space-y-2 list-decimal list-inside text-muted">
-        <li>
-          In ChatGPT: <strong>Settings → Connectors → Advanced</strong>,
-          turn on <strong>Developer Mode</strong> (Plus / Pro / Team / Edu only).
-        </li>
-        <li>
-          <strong>Settings → Connectors → + Create connector</strong>
-        </li>
-        <li>
-          Name: <code>Drawtree</code>
-        </li>
-        <li>
-          MCP server URL: <MonoLine>{MCP_URL}</MonoLine>
-        </li>
-        <li>
-          Authentication: <strong>OAuth</strong> (auto-detected).
-          Leave Client ID and Client Secret blank.
-        </li>
-        <li>
-          Tick <em>I trust this application</em> → Create.
-        </li>
-        <li>
-          A popup opens to drawtree.capital — enter your email and the
-          6-digit code from the email → Approve. ChatGPT activates the
-          connector.
-        </li>
+        {m.start.chatgptSteps(<MonoLine>{MCP_URL}</MonoLine>).map((step, i) => (
+          <li key={i}>{step}</li>
+        ))}
       </ol>
     ),
   },
   {
     key: "claude_ai",
     label: "Claude.ai",
-    tagline: "Web · OAuth",
     authMode: "oauth",
-    body: () => (
+    body: (_apiKey, _clientId, m) => (
       <ol className="text-sm space-y-2 list-decimal list-inside text-muted">
-        <li>
-          In Claude.ai: <strong>Customize → Connectors → + Add custom
-          connector</strong>
-        </li>
-        <li>
-          Name: <code>Drawtree</code>
-        </li>
-        <li>
-          Remote MCP server URL: <MonoLine>{MCP_URL}</MonoLine>
-        </li>
-        <li>
-          Leave <strong>OAuth Client ID</strong> and{" "}
-          <strong>OAuth Client Secret</strong> blank.
-        </li>
-        <li>Click <strong>Add</strong>.</li>
-        <li>
-          A popup opens to drawtree.capital — enter your email and the
-          6-digit code from the email → Approve.
-        </li>
+        {m.start.claudeAiSteps(<MonoLine>{MCP_URL}</MonoLine>).map((step, i) => (
+          <li key={i}>{step}</li>
+        ))}
       </ol>
     ),
   },
   {
     key: "perplexity",
     label: "Perplexity",
-    tagline: "Web · OAuth or API key",
     authMode: "oauth",  // shows the OAuth section + the API-key alternative below
-    body: (apiKey, clientId) => (
+    body: (apiKey, clientId, m) => (
       <div className="text-sm space-y-5 text-muted">
         {/* Common preamble: open the custom-connector dialog. */}
-        <p className="text-[12px]">
-          Heads up: Perplexity supports <strong>both API key and OAuth</strong>{" "}
-          auth for custom connectors. Pick whichever fits below.
-        </p>
+        <p className="text-[12px]">{m.start.perplexityHeadsUp}</p>
         <ol className="space-y-2 list-decimal list-inside">
-          <li>
-            Perplexity: <strong>Settings → Connectors → + Custom
-            connector</strong>
-          </li>
-          <li>
-            Name: <code>Drawtree</code>
-          </li>
-          <li>
-            MCP server URL: <MonoLine>{MCP_URL}</MonoLine>
-          </li>
-          <li>
-            Transport: <code>Streamable HTTP</code>
-          </li>
-          <li>Pick one of the two auth methods below.</li>
+          {m.start
+            .perplexityCommonSteps(<MonoLine>{MCP_URL}</MonoLine>)
+            .map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
         </ol>
 
         {/* Option A — API key (simplest if you already have a dt_ key). */}
         <div className="border border-line rounded p-3 bg-paper-2/40 space-y-2">
           <div className="text-xs font-medium text-ink">
-            → Option A — API key (simplest, recommended)
+            {m.start.perplexityOptionA}
           </div>
           <ol className="space-y-1 list-decimal list-inside text-[12.5px]">
+            <li>{m.start.perplexityOptA1}</li>
             <li>
-              Authentication: <code>API Key</code>
+              {apiKey
+                ? m.start.perplexityOptA2WithKey(`${apiKey.slice(0, 10)}…`)
+                : m.start.perplexityOptA2NoKey}
             </li>
-            <li>
-              API key: paste your{" "}
-              {apiKey ? (
-                <>
-                  <code className="text-[11px]">
-                    {apiKey.slice(0, 10)}…
-                  </code>{" "}
-                  (from step 2 above)
-                </>
-              ) : (
-                <>
-                  <code>dt_</code> key (scroll up to step 2 to paste or
-                  generate one, then copy it here)
-                </>
-              )}
-            </li>
-            <li>
-              Tick the risk acknowledgement → <strong>Add</strong>. Done.
-            </li>
+            <li>{m.start.perplexityOptA3}</li>
           </ol>
-          <p className="text-[11px] text-muted">
-            Your key never leaves Perplexity — they pass it as a Bearer
-            header on every MCP call. No browser popup, no OAuth dance.
-          </p>
+          <p className="text-[11px] text-muted">{m.start.perplexityOptANote}</p>
         </div>
 
         {/* Option B — OAuth (more secure, requires per-user consent). */}
         <div className="border border-line rounded p-3 bg-paper-2/40 space-y-2">
           <div className="text-xs font-medium text-ink">
-            → Option B — OAuth (per-user consent, no shared key)
+            {m.start.perplexityOptionB}
           </div>
           <ol className="space-y-1 list-decimal list-inside text-[12.5px]">
+            <li>{m.start.perplexityOptB1}</li>
             <li>
-              Authentication: <strong>OAuth</strong>
-            </li>
-            <li>
-              Client ID:{" "}
+              {m.start.perplexityOptB2Label}{" "}
               {clientId ? (
                 <MonoLine>{clientId}</MonoLine>
               ) : (
                 <span className="text-[11px]">
-                  (generate one with the button below — only takes a click)
+                  {m.start.perplexityOptB2NoClient}
                 </span>
               )}
             </li>
-            <li>
-              Client Secret: <code>none-required</code> (placeholder —
-              we use PKCE, no real secret)
-            </li>
-            <li>
-              Tick the risk acknowledgement → <strong>Add</strong>.
-              Approve in the popup that opens to drawtree.capital.
-            </li>
+            <li>{m.start.perplexityOptB3}</li>
+            <li>{m.start.perplexityOptB4}</li>
           </ol>
-          <p className="text-[11px] text-muted">
-            Better for shared / org accounts because each session signs
-            in with email — nothing long-lived to leak.
-          </p>
+          <p className="text-[11px] text-muted">{m.start.perplexityOptBNote}</p>
         </div>
       </div>
     ),
@@ -317,61 +142,47 @@ const CLIENTS: ClientDef[] = [
   {
     key: "claude_code",
     label: "Claude Code",
-    tagline: "Terminal · 1 command",
     authMode: "apikey",
-    body: (apiKey) => (
+    body: (apiKey, _clientId, m) => (
       <div className="text-sm space-y-3 text-muted">
-        <p>Run this in your terminal:</p>
+        <p>{m.start.claudeCodeRun}</p>
         <pre className="bg-paper-2 border border-line rounded p-3 text-[12px] overflow-x-auto whitespace-pre-wrap">
 {`claude mcp add drawtree \\
   --transport http \\
   --header "Authorization: Bearer ${apiKey || "dt_xxxxxxxx"}" \\
   ${MCP_URL}`}
         </pre>
-        <p className="text-[11px]">
-          Restart Claude Code, then ask &ldquo;List my drawtree tools.&rdquo;
-        </p>
+        <p className="text-[11px]">{m.start.claudeCodeRestart}</p>
       </div>
     ),
   },
   {
     key: "codex",
     label: "Codex CLI",
-    tagline: "Terminal · config file",
     authMode: "apikey",
-    body: (apiKey) => (
+    body: (apiKey, _clientId, m) => (
       <div className="text-sm space-y-3 text-muted">
-        <p>
-          Export your key, then add an MCP entry to{" "}
-          <code>~/.codex/config.toml</code>:
-        </p>
+        <p>{m.start.codexIntro}</p>
         <pre className="bg-paper-2 border border-line rounded p-3 text-[12px] overflow-x-auto whitespace-pre-wrap">
-{`# 1. Save the key as an env var
+{`${m.start.codexSnippetComment1}
 export DRAWTREE_API_KEY="${apiKey || "dt_xxxxxxxx"}"
 
-# 2. Append to ~/.codex/config.toml
+${m.start.codexSnippetComment2}
 [mcp_servers.drawtree]
 url = "${MCP_URL}"
 bearer_token_env_var = "DRAWTREE_API_KEY"`}
         </pre>
-        <p className="text-[11px]">
-          Run <code>codex</code> in a fresh terminal — the drawtree tools
-          appear automatically.
-        </p>
+        <p className="text-[11px]">{m.start.codexAfter}</p>
       </div>
     ),
   },
   {
     key: "claude_desktop",
     label: "Claude Desktop",
-    tagline: "JSON config",
     authMode: "apikey",
-    body: (apiKey) => (
+    body: (apiKey, _clientId, m) => (
       <div className="text-sm space-y-3 text-muted">
-        <p>
-          Open <strong>Settings → Developer → Edit Config</strong>, then
-          paste:
-        </p>
+        <p>{m.start.claudeDesktopIntro}</p>
         <pre className="bg-paper-2 border border-line rounded p-3 text-[12px] overflow-x-auto whitespace-pre-wrap">
 {`{
   "mcpServers": {
@@ -384,10 +195,7 @@ bearer_token_env_var = "DRAWTREE_API_KEY"`}
   }
 }`}
         </pre>
-        <p className="text-[11px]">
-          Save and restart Claude Desktop. The drawtree icon appears in the
-          message bar.
-        </p>
+        <p className="text-[11px]">{m.start.claudeDesktopAfter}</p>
       </div>
     ),
   },
@@ -404,6 +212,8 @@ function maskKey(key: string): string {
 }
 
 // Download links for the three skill artifacts our /api routes serve.
+// The lang param picks the en/zh body (with the matching language rule
+// baked into the prompt text).
 const SKILL_MD_URL  = "/api/skill/skill.md";
 const SKILL_ZIP_URL = "/api/skill/skill.zip";
 const AGENTS_MD_URL = "/api/skill/agents.md";
@@ -412,29 +222,18 @@ const AGENTS_MD_URL = "/api/skill/agents.md";
 // each AI client — different file format + different drop location for
 // each. Centralised here so step 3 always reflects what step 2 selected.
 function SkillInstallPanel({ client }: { client: ClientKey }) {
+  const { m, locale } = useI18n();
+  const skillMdUrl  = `${SKILL_MD_URL}?lang=${locale}`;
+  const skillZipUrl = `${SKILL_ZIP_URL}?lang=${locale}`;
+  const agentsMdUrl = `${AGENTS_MD_URL}?lang=${locale}`;
   switch (client) {
     case "chatgpt":
       return (
         <div className="text-sm space-y-3 text-muted">
-          <p>
-            ChatGPT&apos;s consumer tier doesn&apos;t have a skill/plugin
-            primitive yet. Use one of these instead:
-          </p>
+          <p>{m.start.skillChatgptIntro}</p>
           <ol className="list-decimal list-inside space-y-2">
-            <li>
-              <strong className="text-ink">Custom GPT (recommended).</strong>{" "}
-              ChatGPT → Explore GPTs → Create → Configure → paste the
-              raw instructions (see expandable section below) into the{" "}
-              <em>Instructions</em> field. Save. Open your custom GPT —
-              the drawtree connector and the workflow rules are both
-              attached.
-            </li>
-            <li>
-              <strong className="text-ink">Project instructions.</strong>{" "}
-              ChatGPT Projects → New project → set the Project
-              instructions to the raw text below. Every chat in that
-              project inherits it.
-            </li>
+            <li>{m.start.skillChatgptOpt1}</li>
+            <li>{m.start.skillChatgptOpt2}</li>
           </ol>
         </div>
       );
@@ -442,28 +241,16 @@ function SkillInstallPanel({ client }: { client: ClientKey }) {
     case "claude_ai":
       return (
         <div className="text-sm space-y-3 text-muted">
-          <p>
-            Upload the skill ZIP to Claude.ai (Anthropic Skills format).
-          </p>
+          <p>{m.start.skillClaudeAiIntro}</p>
           <ol className="list-decimal list-inside space-y-2">
-            <li>
-              Download the skill bundle below — it&apos;s a ZIP
-              containing <code>drawtree/SKILL.md</code>.
-            </li>
-            <li>
-              Claude.ai → <strong>Settings → Capabilities → Skills →
-              Upload Skill</strong>.
-            </li>
-            <li>Pick the ZIP, then toggle the skill on.</li>
-            <li>
-              Open a chat. The skill auto-activates when you mention a
-              ticker or say &ldquo;drawtree&rdquo;.
-            </li>
+            {m.start.skillClaudeAiSteps.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
           </ol>
           <DownloadRow
-            href={SKILL_ZIP_URL}
+            href={skillZipUrl}
             filename="drawtree-skill.zip"
-            label="Download drawtree-skill.zip"
+            label={m.start.downloadSkillZip}
           />
         </div>
       );
@@ -471,37 +258,33 @@ function SkillInstallPanel({ client }: { client: ClientKey }) {
     case "perplexity":
       return (
         <div className="text-sm space-y-3 text-muted">
-          <p>
-            Save the starter prompt as a Perplexity skill so it activates
-            automatically whenever you mention a ticker.
-          </p>
+          <p>{m.start.skillPerplexityIntro}</p>
           <ol className="list-decimal list-inside space-y-2">
-            <li>Download the skill .md or .zip below.</li>
+            <li>{m.start.skillPerplexityStep1}</li>
             <li>
-              Open{" "}
-              <a
-                href="https://www.perplexity.ai/computer/skills"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-ink underline-offset-4 hover:underline"
-              >
-                perplexity.ai/computer/skills
-              </a>{" "}
-              → <strong>+ Create skill</strong> → <strong>Upload a
-              skill</strong>.
+              {m.start.skillPerplexityStep2(
+                <a
+                  href="https://www.perplexity.ai/computer/skills"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ink underline-offset-4 hover:underline"
+                >
+                  perplexity.ai/computer/skills
+                </a>,
+              )}
             </li>
-            <li>Attach the file. The skill activates immediately.</li>
+            <li>{m.start.skillPerplexityStep3}</li>
           </ol>
           <div className="flex flex-wrap gap-2">
             <DownloadRow
-              href={SKILL_MD_URL}
+              href={skillMdUrl}
               filename="drawtree-SKILL.md"
-              label="Download SKILL.md"
+              label={m.start.downloadSkillMd}
             />
             <DownloadRow
-              href={SKILL_ZIP_URL}
+              href={skillZipUrl}
               filename="drawtree-skill.zip"
-              label="Download drawtree-skill.zip"
+              label={m.start.downloadSkillZip}
               secondary
             />
           </div>
@@ -511,66 +294,51 @@ function SkillInstallPanel({ client }: { client: ClientKey }) {
     case "claude_code":
       return (
         <div className="text-sm space-y-4 text-muted">
-          <p>
-            Claude Code&apos;s sandbox blocks outbound network calls by
-            default, so <code>curl</code>-from-inside-Claude doesn&apos;t
-            work for <code>drawtree.capital</code>. The smoothest path is
-            to <strong>download in your browser, then ask Claude to install
-            it</strong> — your browser fetch isn&apos;t sandboxed, Claude
-            just writes the local file.
-          </p>
+          <p>{m.start.skillClaudeCodeIntro}</p>
 
           {/* PRIMARY — one-click browser download + paste prompt */}
           <div className="border border-emerald-300 bg-emerald-50/40 rounded p-3 space-y-2">
             <div className="text-[10px] uppercase tracking-wider text-emerald-800 font-medium">
-              ✨ Recommended — two clicks
+              {m.start.recommendedTwoClicks}
             </div>
             <ol className="list-decimal list-inside space-y-1 text-[13px]">
-              <li>Click <strong>Download SKILL.md</strong> below.</li>
-              <li>
-                In Claude Code, paste the one-line prompt below and hit
-                enter. Claude installs it for you.
-              </li>
+              <li>{m.start.skillClaudeCodeStep1}</li>
+              <li>{m.start.skillClaudeCodeStep2}</li>
             </ol>
             <div className="flex flex-wrap gap-2 pt-1">
               <DownloadRow
-                href={SKILL_MD_URL}
+                href={skillMdUrl}
                 filename="SKILL.md"
-                label="Download SKILL.md"
+                label={m.start.downloadSkillMd}
               />
             </div>
             <div className="mt-2 flex items-center gap-2">
               <code className="flex-1 text-[11px] font-mono bg-white border border-emerald-200 rounded px-2 py-1.5">
-                Install the Draw Tree skill: create the folder ~/.claude/skills/drawtree and move ~/Downloads/SKILL.md into it.
+                {m.start.skillClaudeCodePastePrompt}
               </code>
-              <Copy text={"Install the Draw Tree skill: create the folder ~/.claude/skills/drawtree and move ~/Downloads/SKILL.md into it."} />
+              <Copy text={m.start.skillClaudeCodePastePrompt} />
             </div>
             <p className="text-[11px] text-emerald-900">
-              After Claude says it&apos;s done, run{" "}
-              <code>/skills</code> in Claude Code to verify, or just say
-              &ldquo;use the drawtree skill…&rdquo;.
+              {m.start.skillClaudeCodeVerify}
             </p>
           </div>
 
           {/* SECONDARY — manual terminal install (no Claude needed) */}
           <details className="text-[12px]">
             <summary className="cursor-pointer hover:text-ink">
-              Prefer to run it in your own terminal? →
+              {m.start.preferTerminal}
             </summary>
             <div className="mt-2 space-y-2 pl-3 border-l-2 border-line">
-              <p>
-                Run this in your <strong>regular terminal</strong> (not
-                inside Claude Code) — your shell has full network access:
-              </p>
+              <p>{m.start.skillClaudeCodeManual}</p>
               <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
 {`mkdir -p ~/.claude/skills/drawtree && \\
-  curl -L https://drawtree.capital${SKILL_MD_URL} \\
+  curl -L "https://drawtree.capital${skillMdUrl}" \\
   -o ~/.claude/skills/drawtree/SKILL.md`}
               </pre>
               <div className="flex justify-end">
                 <Copy
-                  text={`mkdir -p ~/.claude/skills/drawtree && curl -L https://drawtree.capital${SKILL_MD_URL} -o ~/.claude/skills/drawtree/SKILL.md`}
-                  label="Copy command"
+                  text={`mkdir -p ~/.claude/skills/drawtree && curl -L "https://drawtree.capital${skillMdUrl}" -o ~/.claude/skills/drawtree/SKILL.md`}
+                  label={m.start.copyCommand}
                 />
               </div>
             </div>
@@ -581,70 +349,54 @@ function SkillInstallPanel({ client }: { client: ClientKey }) {
     case "codex":
       return (
         <div className="text-sm space-y-4 text-muted">
-          <p>
-            Codex CLI auto-loads <code>AGENTS.md</code> from your Codex
-            home or any project root. Same caveat as Claude Code — the
-            sandboxed AI can&apos;t reach <code>drawtree.capital</code>,
-            so download in your browser and ask Codex to install it.
-          </p>
+          <p>{m.start.skillCodexIntro}</p>
 
           {/* PRIMARY — one-click browser download + paste prompt */}
           <div className="border border-emerald-300 bg-emerald-50/40 rounded p-3 space-y-2">
             <div className="text-[10px] uppercase tracking-wider text-emerald-800 font-medium">
-              ✨ Recommended — two clicks
+              {m.start.recommendedTwoClicks}
             </div>
             <ol className="list-decimal list-inside space-y-1 text-[13px]">
-              <li>Click <strong>Download AGENTS.md</strong> below.</li>
-              <li>
-                In Codex, paste the one-line prompt below and hit enter.
-                Codex installs it for you.
-              </li>
+              <li>{m.start.skillCodexStep1}</li>
+              <li>{m.start.skillCodexStep2}</li>
             </ol>
             <div className="flex flex-wrap gap-2 pt-1">
               <DownloadRow
-                href={AGENTS_MD_URL}
+                href={agentsMdUrl}
                 filename="AGENTS.md"
-                label="Download AGENTS.md"
+                label={m.start.downloadAgentsMd}
               />
             </div>
             <div className="mt-2 flex items-center gap-2">
               <code className="flex-1 text-[11px] font-mono bg-white border border-emerald-200 rounded px-2 py-1.5">
-                Install the Draw Tree agent instructions: create the folder ~/.codex and move ~/Downloads/AGENTS.md into it.
+                {m.start.skillCodexPastePrompt}
               </code>
-              <Copy text={"Install the Draw Tree agent instructions: create the folder ~/.codex and move ~/Downloads/AGENTS.md into it."} />
+              <Copy text={m.start.skillCodexPastePrompt} />
             </div>
             <p className="text-[11px] text-emerald-900">
-              Start a fresh Codex session afterwards — the new AGENTS.md
-              is picked up at session start.
+              {m.start.skillCodexVerify}
             </p>
           </div>
 
           {/* SECONDARY — manual terminal install */}
           <details className="text-[12px]">
             <summary className="cursor-pointer hover:text-ink">
-              Prefer your own terminal? →
+              {m.start.preferTerminalShort}
             </summary>
             <div className="mt-2 space-y-2 pl-3 border-l-2 border-line">
-              <p>
-                Run this in your regular shell (not inside Codex) where
-                network access is unrestricted:
-              </p>
+              <p>{m.start.skillCodexManual}</p>
               <pre className="bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
 {`mkdir -p ~/.codex && \\
-  curl -L https://drawtree.capital${AGENTS_MD_URL} \\
+  curl -L "https://drawtree.capital${agentsMdUrl}" \\
   -o ~/.codex/AGENTS.md`}
               </pre>
               <div className="flex justify-end">
                 <Copy
-                  text={`mkdir -p ~/.codex && curl -L https://drawtree.capital${AGENTS_MD_URL} -o ~/.codex/AGENTS.md`}
-                  label="Copy command"
+                  text={`mkdir -p ~/.codex && curl -L "https://drawtree.capital${agentsMdUrl}" -o ~/.codex/AGENTS.md`}
+                  label={m.start.copyCommand}
                 />
               </div>
-              <p className="text-[11px]">
-                Per-project alternative: place the same file at{" "}
-                <code>&lt;project-root&gt;/AGENTS.md</code> — Codex
-                merges global + project automatically.
-              </p>
+              <p className="text-[11px]">{m.start.skillCodexPerProject}</p>
             </div>
           </details>
         </div>
@@ -653,22 +405,16 @@ function SkillInstallPanel({ client }: { client: ClientKey }) {
     case "claude_desktop":
       return (
         <div className="text-sm space-y-3 text-muted">
-          <p>
-            Same Anthropic Skills format as Claude.ai — upload the ZIP
-            in Settings.
-          </p>
+          <p>{m.start.skillClaudeDesktopIntro}</p>
           <ol className="list-decimal list-inside space-y-2">
-            <li>Download the skill bundle below.</li>
-            <li>
-              Claude Desktop → <strong>Settings → Capabilities → Skills
-              → Upload Skill</strong>.
-            </li>
-            <li>Pick the ZIP, then toggle the skill on.</li>
+            {m.start.skillClaudeDesktopSteps.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
           </ol>
           <DownloadRow
-            href={SKILL_ZIP_URL}
+            href={skillZipUrl}
             filename="drawtree-skill.zip"
-            label="Download drawtree-skill.zip"
+            label={m.start.downloadSkillZip}
           />
         </div>
       );
@@ -701,7 +447,8 @@ function DownloadRow({
   );
 }
 
-function Copy({ text, label = "Copy" }: { text: string; label?: string }) {
+function Copy({ text, label }: { text: string; label?: string }) {
+  const { m } = useI18n();
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -714,12 +461,18 @@ function Copy({ text, label = "Copy" }: { text: string; label?: string }) {
       }}
       className="px-3 py-1.5 text-xs border border-line rounded hover:bg-paper-2 transition"
     >
-      {copied ? "✓ Copied" : label}
+      {copied ? m.common.copied : label || m.common.copy}
     </button>
   );
 }
 
 export default function Start() {
+  const { m, locale } = useI18n();
+
+  // The starter prompt in the visitor's language — bakes in the
+  // matching language rule (language='en' / language='zh').
+  const starterPrompt = getSystemPrompt(locale);
+
   // Auth state — populated from sessionStorage on mount.
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [agentEmail, setAgentEmail] = useState<string | null>(null);
@@ -814,7 +567,7 @@ export default function Start() {
   // ----- inline sign-in (mirrors the consent page) -----
   const requestCode = useCallback(async () => {
     if (!signInEmail.includes("@")) {
-      setSignInErr("Please enter a valid email.");
+      setSignInErr(m.signin.invalidEmail);
       return;
     }
     setSignInBusy(true);
@@ -827,23 +580,21 @@ export default function Start() {
       });
       const body = await r.json();
       if (body?.unknown_email) {
-        setSignInErr(
-          "That email isn't registered. Sign up first below.",
-        );
+        setSignInErr(m.signin.notRegisteredStart);
         setSignInBusy(false);
         return;
       }
       setSignInStage("code");
     } catch (e: any) {
-      setSignInErr(e?.message || "Network error sending code.");
+      setSignInErr(e?.message || m.signin.networkSend);
     }
     setSignInBusy(false);
-  }, [signInEmail]);
+  }, [signInEmail, m]);
 
   const verifyCode = useCallback(async () => {
     const cleaned = signInCode.replace(/\D/g, "");
     if (cleaned.length !== 6) {
-      setSignInErr("The code is 6 digits.");
+      setSignInErr(m.signin.codeIs6Digits);
       return;
     }
     setSignInBusy(true);
@@ -861,11 +612,11 @@ export default function Start() {
       if (!r.ok) {
         const c = body?.detail?.code || "";
         const msg =
-          c === "INVALID_CODE"        ? "That code doesn't match. Check the latest email." :
-          c === "CODE_ALREADY_USED"   ? "That code was already used. Request a new one." :
-          c === "CODE_EXPIRED"        ? "That code has expired. Request a new one." :
-          c === "INVALID_CODE_FORMAT" ? "The code must be 6 digits." :
-          `Sign-in failed (${r.status}).`;
+          c === "INVALID_CODE"        ? m.signin.codeMismatch :
+          c === "CODE_ALREADY_USED"   ? m.signin.codeUsed :
+          c === "CODE_EXPIRED"        ? m.signin.codeExpired :
+          c === "INVALID_CODE_FORMAT" ? m.signin.codeFormat :
+          m.signin.signInFailed(r.status);
         setSignInErr(msg);
         setSignInBusy(false);
         return;
@@ -877,10 +628,10 @@ export default function Start() {
       setAgentEmail(body.email);
       setSignInBusy(false);
     } catch (e: any) {
-      setSignInErr(e?.message || "Network error verifying code.");
+      setSignInErr(e?.message || m.signin.networkVerify);
       setSignInBusy(false);
     }
-  }, [signInCode, signInEmail]);
+  }, [signInCode, signInEmail, m]);
 
   // ----- OAuth client_id (only needed for Perplexity) -----
   // Auto-fetch any existing client the user already minted. We don't
@@ -908,12 +659,7 @@ export default function Start() {
   async function regenerateKey() {
     const tok = sessionStorage.getItem("drawtree_api_key");
     if (!tok) return;
-    if (
-      !confirm(
-        "This will issue a NEW API key and invalidate the old one. Any existing CLI installs (Claude Code, Codex, Claude Desktop) will need to be re-registered with the new key. Continue?",
-      )
-    )
-      return;
+    if (!confirm(m.start.regenerateConfirm)) return;
     setRegenerating(true);
     setRegenErr(null);
     try {
@@ -923,7 +669,7 @@ export default function Start() {
       });
       const body = await r.json();
       if (!r.ok) {
-        setRegenErr(body?.detail || `Failed (${r.status}).`);
+        setRegenErr(body?.detail || m.start.failed(r.status));
         setRegenerating(false);
         return;
       }
@@ -939,7 +685,7 @@ export default function Start() {
         setKeyRevealed(true);  // freshly issued: show by default so the user can copy
       }
     } catch (e: any) {
-      setRegenErr(e?.message || "Network error.");
+      setRegenErr(e?.message || m.start.networkError);
     }
     setRegenerating(false);
   }
@@ -952,7 +698,7 @@ export default function Start() {
   function saveManualKey() {
     const k = manualKeyInput.trim();
     if (!k.startsWith("dt_")) {
-      setRegenErr("Keys start with dt_");
+      setRegenErr(m.start.keysStartWith);
       return;
     }
     setApiKey(k);
@@ -1000,12 +746,12 @@ export default function Start() {
       });
       const body = await r.json();
       if (!r.ok) {
-        setClientErr(body?.detail || `Failed (${r.status})`);
+        setClientErr(body?.detail || m.start.failed(r.status));
       } else {
         setClientId(body.client_id);
       }
     } catch (e: any) {
-      setClientErr(e?.message || "Network error");
+      setClientErr(e?.message || m.start.networkError);
     }
     setMintingClient(false);
   }
@@ -1022,13 +768,11 @@ export default function Start() {
           href="/"
           className="text-xs text-muted underline-offset-4 hover:underline"
         >
-          ← Draw Tree
+          {m.common.backToDrawTree}
         </Link>
-        <h1 className="text-3xl tracking-tight mt-3">Connect Draw Tree to your AI</h1>
+        <h1 className="text-3xl tracking-tight mt-3">{m.start.title}</h1>
         <p className="text-muted mt-2 text-sm leading-relaxed max-w-xl">
-          Three steps. Pick your AI client. Paste two things. Run your
-          first ticker. New accounts get <strong>50 free credits</strong>{" "}
-          — enough to publish your first tree end-to-end.
+          {m.start.intro}
         </p>
       </header>
 
@@ -1039,44 +783,35 @@ export default function Start() {
         <div className="flex items-baseline justify-between gap-3 mb-3">
           <h2 className="text-lg">
             <span className="text-muted mr-2">1 ·</span>
-            Sign in or create an account
+            {m.start.step1Title}
           </h2>
           {isSignedIn && (
             <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-              ✓ Signed in
+              {m.start.signedInBadge}
             </span>
           )}
         </div>
 
         {isSignedIn ? (
           <div className="text-sm text-muted">
-            Signed in as <strong className="text-ink">{agentEmail}</strong>.{" "}
-            {apiKey ? (
-              <>
-                Your MCP API key is shown in step 2 below.{" "}
-              </>
-            ) : (
-              <>
-                Generate or paste your API key in step 2 below.{" "}
-              </>
-            )}
+            {m.start.signedInAs(agentEmail)}
+            {apiKey ? m.start.keyShownBelow : m.start.generateBelow}
             <Link
               href="/account"
               className="underline-offset-4 hover:underline"
             >
-              Manage account →
+              {m.start.manageAccount}
             </Link>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted">
-              Have an account? Enter your email, we&apos;ll send a 6-digit
-              code. New here?{" "}
+              {m.start.haveAccountPrompt}
               <Link
                 href="/signup"
                 className="text-ink underline-offset-4 hover:underline"
               >
-                Sign up free →
+                {m.start.signUpFree}
               </Link>
             </p>
             {signInStage === "email" ? (
@@ -1090,7 +825,7 @@ export default function Start() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !signInBusy) requestCode();
                   }}
-                  placeholder="you@example.com"
+                  placeholder={m.signup.emailPlaceholder}
                   className="flex-1 px-3 py-2 text-sm border border-line rounded focus:outline-none focus:border-ink"
                 />
                 <button
@@ -1098,15 +833,13 @@ export default function Start() {
                   disabled={signInBusy || !signInEmail}
                   className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
                 >
-                  {signInBusy ? "Sending…" : "Email me a code"}
+                  {signInBusy ? m.signin.sending : m.signin.emailMeCode}
                 </button>
               </div>
             ) : (
               <div className="space-y-2">
                 <div className="text-xs text-muted">
-                  Code sent to{" "}
-                  <strong className="text-ink">{signInEmail}</strong>. Check
-                  your inbox.
+                  {m.signin.codeSentTo(signInEmail)}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
@@ -1119,7 +852,7 @@ export default function Start() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !signInBusy) verifyCode();
                     }}
-                    placeholder="123 456"
+                    placeholder={m.signin.codePlaceholder}
                     className="flex-1 px-3 py-2 text-lg font-mono tracking-widest text-center border border-line rounded focus:outline-none focus:border-ink"
                   />
                   <button
@@ -1130,7 +863,7 @@ export default function Start() {
                     }
                     className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
                   >
-                    {signInBusy ? "Verifying…" : "Sign in"}
+                    {signInBusy ? m.signin.verifying : m.signin.signIn}
                   </button>
                 </div>
                 <div className="flex justify-between text-[11px] text-muted">
@@ -1142,7 +875,7 @@ export default function Start() {
                     }}
                     className="underline-offset-4 hover:underline"
                   >
-                    ← Change email
+                    {m.signin.changeEmail}
                   </button>
                   <button
                     onClick={() => {
@@ -1151,7 +884,7 @@ export default function Start() {
                     }}
                     className="underline-offset-4 hover:underline"
                   >
-                    Resend code
+                    {m.signin.resendCode}
                   </button>
                 </div>
               </div>
@@ -1172,20 +905,15 @@ export default function Start() {
         <div className="flex items-baseline justify-between gap-3 mb-3">
           <h2 className="text-lg">
             <span className="text-muted mr-2">2 ·</span>
-            Your API key
+            {m.start.step2Title}
           </h2>
           {apiKey && (
             <span className="text-[11px] text-emerald-700">
-              ✓ Ready to paste below
+              {m.start.readyToPaste}
             </span>
           )}
         </div>
-        <p className="text-sm text-muted mb-4">
-          Every Draw Tree install — OAuth or API key, web or CLI — is
-          tied to a <code>dt_</code> key on your account. Paste an
-          existing one or generate a new one. We never store it in
-          your browser; copy it straight into your password manager.
-        </p>
+        <p className="text-sm text-muted mb-4">{m.start.step2Intro}</p>
 
         <div className="border border-line rounded p-3 bg-paper-2/40 space-y-3">
           {/* Mode 1: freshly generated key — must save now */}
@@ -1193,13 +921,13 @@ export default function Start() {
             <div className="border border-emerald-300 bg-emerald-50/50 rounded p-3 space-y-2">
               <div className="flex items-baseline justify-between gap-3">
                 <div className="text-[10px] uppercase tracking-wider text-emerald-800 font-medium">
-                  ✨ New API key — save it now
+                  {m.start.freshKeyTitle}
                 </div>
                 <button
                   onClick={clearKey}
                   className="text-[11px] text-emerald-800 hover:underline underline-offset-4"
                 >
-                  I&apos;ve saved it ✓
+                  {m.start.savedIt}
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -1209,18 +937,14 @@ export default function Start() {
                 <button
                   onClick={() => setKeyRevealed((v) => !v)}
                   className="px-2 py-1.5 text-xs border border-emerald-200 rounded hover:bg-emerald-100 shrink-0"
-                  title={keyRevealed ? "Hide" : "Reveal"}
+                  title={keyRevealed ? m.start.hide : m.start.reveal}
                 >
-                  {keyRevealed ? "🔒 Hide" : "👁 Reveal"}
+                  {keyRevealed ? m.start.hide : m.start.reveal}
                 </button>
                 <Copy text={apiKey} />
               </div>
               <div className="text-[11px] text-emerald-900 leading-relaxed">
-                This is the <strong>only time</strong> the key is visible.
-                Copy it into your password manager (1Password, Bitwarden,
-                Apple Keychain…) right now. After you refresh the page or
-                click <em>I&apos;ve saved it</em>, you&apos;ll have to
-                regenerate to see another one (which invalidates this one).
+                {m.start.freshKeyNote}
               </div>
             </div>
           )}
@@ -1230,13 +954,13 @@ export default function Start() {
             <div className="space-y-2">
               <div className="flex items-baseline justify-between gap-3">
                 <div className="text-[10px] uppercase tracking-wider text-muted">
-                  Active API key (this tab only)
+                  {m.start.activeKeyTitle}
                 </div>
                 <button
                   onClick={clearKey}
                   className="text-[11px] text-muted hover:underline underline-offset-4"
                 >
-                  Use a different key
+                  {m.start.useDifferentKey}
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -1246,16 +970,14 @@ export default function Start() {
                 <button
                   onClick={() => setKeyRevealed((v) => !v)}
                   className="px-2 py-1.5 text-xs border border-line rounded hover:bg-paper-2 shrink-0"
-                  title={keyRevealed ? "Hide" : "Reveal"}
+                  title={keyRevealed ? m.start.hide : m.start.reveal}
                 >
-                  {keyRevealed ? "🔒 Hide" : "👁 Reveal"}
+                  {keyRevealed ? m.start.hide : m.start.reveal}
                 </button>
                 <Copy text={apiKey} />
               </div>
               <div className="text-[10px] text-muted">
-                The key fills the install snippets below. Not saved —
-                paste again next time, or use a password-manager
-                autofill.
+                {m.start.pastedKeyNote}
               </div>
             </div>
           )}
@@ -1266,12 +988,10 @@ export default function Start() {
               {/* Paste-existing path */}
               <div className="space-y-2">
                 <div className="text-xs font-medium text-ink">
-                  Have your key?
+                  {m.start.haveYourKey}
                 </div>
                 <div className="text-[11px] text-muted">
-                  Paste it from your password manager (or the
-                  &ldquo;Welcome to Draw Tree&rdquo; email). Stays in
-                  this tab only.
+                  {m.start.pasteFromManager}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
@@ -1293,7 +1013,7 @@ export default function Start() {
                     disabled={!manualKeyInput.startsWith("dt_")}
                     className="px-4 py-2 text-xs border border-line rounded hover:bg-paper-2 disabled:opacity-50"
                   >
-                    Use this key
+                    {m.start.useThisKey}
                   </button>
                 </div>
               </div>
@@ -1302,25 +1022,22 @@ export default function Start() {
               {isSignedIn ? (
                 <div className="border-t border-line pt-3 space-y-2">
                   <div className="text-xs font-medium text-ink">
-                    Lost your key, or first time setting up?
+                    {m.start.lostKeyTitle}
                   </div>
                   <div className="text-[11px] text-muted">
-                    Generate a fresh one. This{" "}
-                    <strong>invalidates the previous key</strong> — any
-                    AI client currently using the old key will stop
-                    working until you update it.
+                    {m.start.generateNote}
                   </div>
                   <button
                     onClick={regenerateKey}
                     disabled={regenerating}
                     className="px-4 py-2 text-xs bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
                   >
-                    {regenerating ? "Generating…" : "Generate new API key"}
+                    {regenerating ? m.start.generating : m.start.generateButton}
                   </button>
                 </div>
               ) : (
                 <div className="border-t border-line pt-3 text-[11px] text-muted">
-                  Want to generate a new key? Sign in at step 1 above.
+                  {m.start.signInToGenerate}
                 </div>
               )}
 
@@ -1340,13 +1057,9 @@ export default function Start() {
       <section className="mb-6 border border-line rounded p-6">
         <h2 className="text-lg mb-3">
           <span className="text-muted mr-2">3 ·</span>
-          Install Draw Tree on your AI
+          {m.start.step3Title}
         </h2>
-        <p className="text-sm text-muted mb-4">
-          Pick where you want to use Draw Tree. Web clients use{" "}
-          <strong>OAuth</strong> (one-click sign-in). CLI clients use your
-          API key directly.
-        </p>
+        <p className="text-sm text-muted mb-4">{m.start.step3Intro}</p>
 
         {/* Client tabs */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
@@ -1361,7 +1074,9 @@ export default function Start() {
               }`}
             >
               <div className="font-medium">{c.label}</div>
-              <div className="text-[10px] opacity-70 mt-0.5">{c.tagline}</div>
+              <div className="text-[10px] opacity-70 mt-0.5">
+                {m.start.taglines[c.key]}
+              </div>
             </button>
           ))}
         </div>
@@ -1369,62 +1084,34 @@ export default function Start() {
         {/* Auth-mode banner */}
         <div className="text-[11px] text-muted mb-4 px-3 py-2 bg-paper-2 border border-line rounded">
           {active === "perplexity" ? (
-            <>
-              <strong className="text-ink">Perplexity</strong> supports{" "}
-              <strong>both OAuth and API key</strong> auth. The API key
-              path is simpler — grab your key from step 2 above and paste
-              it into the connector dialog. OAuth is better for shared /
-              org accounts.
-            </>
+            m.start.bannerPerplexity
           ) : isOAuthClient ? (
-            <>
-              <strong className="text-ink">{activeClient.label}</strong> uses{" "}
-              <strong>OAuth</strong>. You don&apos;t need to copy your API
-              key — sign-in happens in a popup window.
-            </>
+            m.start.bannerOAuth(activeClient.label)
+          ) : apiKey ? (
+            m.start.bannerApiKeyWithKey(
+              activeClient.label,
+              `${apiKey.slice(0, 10)}…`,
+              keySource === "fresh",
+            )
           ) : (
-            <>
-              <strong className="text-ink">{activeClient.label}</strong> uses
-              your <strong>API key</strong>{" "}
-              {apiKey ? (
-                <>
-                  (from step 2 above —{" "}
-                  <span className="font-mono">{apiKey.slice(0, 10)}…</span>
-                  {keySource === "fresh" && (
-                    <span className="ml-2 text-emerald-700">
-                      ✨ just generated
-                    </span>
-                  )}
-                  ).
-                </>
-              ) : (
-                <>
-                  — scroll up to step 2 to paste or generate one, then
-                  follow the snippet below.
-                </>
-              )}
-            </>
+            m.start.bannerApiKeyNoKey(activeClient.label)
           )}
         </div>
 
 
         {/* Selected client's install body */}
-        <div className="mb-3">{activeClient.body(apiKey || "", clientId)}</div>
+        <div className="mb-3">{activeClient.body(apiKey || "", clientId, m)}</div>
 
         {/* Perplexity-only: mint Client ID */}
         {showPerplexityMintButton && (
           <div className="mt-4 border border-line rounded p-3 bg-paper-2/40">
-            <div className="text-xs text-muted mb-2">
-              Perplexity asks you to paste a Client ID. Generate one now —
-              we&apos;ll register it under your account so you can revoke
-              it later from <code>/account</code>.
-            </div>
+            <div className="text-xs text-muted mb-2">{m.start.mintIntro}</div>
             <button
               onClick={mintClient}
               disabled={mintingClient}
               className="px-3 py-1.5 text-xs bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
             >
-              {mintingClient ? "Generating…" : "Generate Client ID"}
+              {mintingClient ? m.start.minting : m.start.mintButton}
             </button>
             {clientErr && (
               <div className="mt-2 text-[11px] text-red-700">
@@ -1436,9 +1123,7 @@ export default function Start() {
 
         {active === "perplexity" && clientId && (
           <div className="mt-4 border border-emerald-200 rounded p-3 bg-emerald-50/30 space-y-2">
-            <div className="text-xs text-muted">
-              Your Client ID (paste into Perplexity):
-            </div>
+            <div className="text-xs text-muted">{m.start.yourClientId}</div>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-xs font-mono bg-paper border border-line rounded px-2 py-1 break-all">
                 {clientId}
@@ -1450,9 +1135,9 @@ export default function Start() {
 
         {/* MCP URL fallback */}
         <div className="mt-5 pt-3 border-t border-line flex items-center gap-3 text-[11px] text-muted">
-          <span>MCP server URL:</span>
+          <span>{m.start.mcpUrlLabel}</span>
           <code className="font-mono">{MCP_URL}</code>
-          <Copy text={MCP_URL} label="Copy URL" />
+          <Copy text={MCP_URL} label={m.common.copyUrl} />
         </div>
       </section>
 
@@ -1462,14 +1147,9 @@ export default function Start() {
       <section className="mb-6 border border-line rounded p-6">
         <h2 className="text-lg mb-3">
           <span className="text-muted mr-2">4 ·</span>
-          Install the Draw Tree skill
+          {m.start.step4Title}
         </h2>
-        <p className="text-sm text-muted mb-4">
-          The skill teaches your AI <em>how</em> to drive the Draw Tree
-          workflow correctly (entry gate, Phase 1 stages, Phase 2 deep
-          research, etc.). Each client has its own install path — pick
-          yours below.
-        </p>
+        <p className="text-sm text-muted mb-4">{m.start.step4Intro}</p>
 
         {/* Same tabs as Step 3 — driven off the active state, so the user
             doesn't have to scroll up to switch. */}
@@ -1485,7 +1165,9 @@ export default function Start() {
               }`}
             >
               <div className="font-medium">{c.label}</div>
-              <div className="text-[10px] opacity-70 mt-0.5">{c.tagline}</div>
+              <div className="text-[10px] opacity-70 mt-0.5">
+                {m.start.taglines[c.key]}
+              </div>
             </button>
           ))}
         </div>
@@ -1497,21 +1179,18 @@ export default function Start() {
             no native skill primitive yet. */}
         <details className="mt-5 border-t border-line pt-4">
           <summary className="text-xs text-muted cursor-pointer hover:text-ink select-none">
-            Show raw instructions (for any client that has no skill primitive)
+            {m.start.rawInstructionsSummary}
           </summary>
           <pre className="mt-3 bg-paper-2 border border-line rounded p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap max-h-80">
-            {STARTER_PROMPT}
+            {starterPrompt}
           </pre>
           <div className="mt-2">
-            <Copy text={STARTER_PROMPT} label="Copy raw instructions" />
+            <Copy text={starterPrompt} label={m.start.copyRawInstructions} />
           </div>
         </details>
 
         <div className="mt-4 text-[11px] text-muted border-t border-line pt-3">
-          <strong className="text-ink">After installing:</strong> open a
-          new chat in your AI client and just say{" "}
-          <em>&ldquo;I want to analyze NVDA&rdquo;</em> (or any ticker).
-          The skill auto-activates and walks you through Phase 1 → Phase 2.
+          {m.start.afterInstalling}
         </div>
       </section>
 
@@ -1519,31 +1198,22 @@ export default function Start() {
       {/* Pricing reference                              */}
       {/* ============================================== */}
       <section className="mb-8 border border-line rounded p-6 text-sm">
-        <h2 className="text-lg mb-3">Credits at a glance</h2>
-        <p className="text-muted text-xs mb-4">
-          $1 USD = 10 credits. Phase 1 design is always free. Phase 2 deep
-          research is a single 50-credit bundle. Weekly monitoring is 5
-          credits per run.
-        </p>
+        <h2 className="text-lg mb-3">{m.start.pricingTitle}</h2>
+        <p className="text-muted text-xs mb-4">{m.start.pricingIntro}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-xs">
           <div>
             <div className="text-ink uppercase tracking-wider mb-2">
-              First tree (typical)
+              {m.start.firstTree}
             </div>
             <ul className="space-y-0.5 text-muted">
-              <li>Phase 1 (framework design) — free</li>
-              <li>Phase 2 (research + commit) — 50 cr flat</li>
-              <li>First week of monitoring — 5 cr</li>
-              <li>
-                <strong className="text-ink">Total: 55 cr</strong>{" "}
-                — covered by the 50 free signup credits plus a single
-                $5 top-up (50 cr).
-              </li>
+              {m.start.firstTreeItems.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
             </ul>
           </div>
           <div>
             <div className="text-ink uppercase tracking-wider mb-2">
-              Top-up tiers
+              {m.start.topupTiers}
             </div>
             <ul className="space-y-0.5 text-muted">
               <li>$5 → 50 cr</li>
@@ -1556,7 +1226,7 @@ export default function Start() {
               href="/account"
               className="inline-block mt-2 text-ink underline-offset-4 hover:underline"
             >
-              Top up at /account →
+              {m.start.topupAtAccount}
             </Link>
           </div>
         </div>
@@ -1565,16 +1235,16 @@ export default function Start() {
       <footer className="text-xs text-muted text-center pt-4 border-t border-line">
         <div className="flex justify-center gap-4">
           <Link href="/spec" className="underline-offset-4 hover:underline">
-            Protocol spec
+            {m.start.footerSpec}
           </Link>
           <Link href="/account" className="underline-offset-4 hover:underline">
-            My account
+            {m.common.myAccount}
           </Link>
           <a
             href="mailto:founder@peter-ai.app"
             className="underline-offset-4 hover:underline"
           >
-            Email support
+            {m.start.footerSupport}
           </a>
         </div>
       </footer>

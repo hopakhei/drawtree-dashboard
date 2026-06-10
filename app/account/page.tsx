@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 
 const API_URL = "https://drawtree-api.onrender.com";
@@ -59,6 +60,7 @@ type SignInState =
   | "error";
 
 export default function Account() {
+  const { m } = useI18n();
   const [apiKey, setApiKey] = useState("");
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(false);
@@ -137,12 +139,12 @@ export default function Account() {
           const code = String(e?.message || "");
           const friendly =
             code === "TOKEN_EXPIRED"
-              ? "Your sign-in link has expired. Request a new one."
+              ? m.account.linkExpired
               : code === "TOKEN_ALREADY_USED"
-              ? "This sign-in link has already been used. Request a new one."
+              ? m.account.linkUsed
               : code === "INVALID_TOKEN"
-              ? "This sign-in link is invalid. Request a new one."
-              : "Sign-in failed. Request a new link.";
+              ? m.account.linkInvalid
+              : m.account.linkFailed;
           setSignInState("error");
           setSignInMsg(friendly);
           window.history.replaceState({}, "", "/account");
@@ -186,16 +188,14 @@ export default function Account() {
     if (topup === "success") {
       setTopupBanner({
         kind: "pending",
-        message:
-          "Payment received. Adding credits to your account — this usually takes a few seconds.",
+        message: m.account.topupPending,
       });
       // Strip the query so a manual refresh doesn't re-trigger the banner.
       window.history.replaceState({}, "", "/account");
     } else if (topup === "cancel") {
       setTopupBanner({
         kind: "cancel",
-        message:
-          "Payment cancelled. No charges were made and your account is unchanged.",
+        message: m.account.topupCancelled,
       });
       window.history.replaceState({}, "", "/account");
     }
@@ -223,7 +223,7 @@ export default function Account() {
         setWorkspace(w);
         setError(null);
       })
-      .catch((e) => setError(`Lookup failed (${e?.message || "unknown"})`))
+      .catch((e) => setError(m.account.lookupFailed(e?.message || "unknown")))
       .finally(() => setLoading(false));
   }, [apiKey]);
 
@@ -235,8 +235,7 @@ export default function Account() {
       // ~24s elapsed; webhook clearly delayed.
       setTopupBanner({
         kind: "pending",
-        message:
-          "Your payment is confirmed but credits haven't landed yet. Refresh in a minute. If it still hasn't updated, email support@drawtree.capital.",
+        message: m.account.topupDelayed,
       });
       return;
     }
@@ -253,7 +252,7 @@ export default function Account() {
           const credited = d.balance - startBalance;
           setTopupBanner({
             kind: "success",
-            message: `${credited} credits added. Your new balance is ${d.balance}.`,
+            message: m.account.topupCredited(credited, d.balance),
           });
         } else {
           setPollAttempts((n) => n + 1);
@@ -281,7 +280,7 @@ export default function Account() {
       const d = await r.json();
       if (!r.ok) {
         setSignInState("error");
-        setSignInMsg("Couldn't send link. Try again in a moment.");
+        setSignInMsg(m.account.sendFailed);
         return;
       }
       if (d.unknown_email) {
@@ -289,9 +288,7 @@ export default function Account() {
         // Show the code-entry stage anyway so we never reveal which
         // emails are registered, but message says 'if registered…'.
         setSignInState("code-entry");
-        setSignInMsg(
-          "If that email is registered, a code is on its way. Check your inbox (and spam)."
-        );
+        setSignInMsg(m.account.ifRegistered);
         return;
       }
       if (d.dev_mode && d.magic_link) {
@@ -300,9 +297,7 @@ export default function Account() {
         setSignInState("code-entry");
         setDevModeLink(d.magic_link);
         if (d.code) setDevModeCode(d.code);
-        setSignInMsg(
-          "Email sender isn't configured yet — use the link or code below."
-        );
+        setSignInMsg(m.account.devModeNotice);
         return;
       }
       // Normal happy path: prompt for the 6-digit code (and tell them
@@ -311,7 +306,7 @@ export default function Account() {
       setSignInMsg(null);
     } catch (err: any) {
       setSignInState("error");
-      setSignInMsg(`Network error (${err?.message || "unknown"}).`);
+      setSignInMsg(m.account.networkError(err?.message || "unknown"));
     }
   }
 
@@ -325,7 +320,7 @@ export default function Account() {
     const cleaned = signInCode.replace(/\D/g, "");
     if (cleaned.length !== 6) {
       setSignInState("error");
-      setSignInMsg("The code is 6 digits.");
+      setSignInMsg(m.signin.codeIs6Digits);
       return;
     }
     setSignInState("verifying");
@@ -343,11 +338,11 @@ export default function Account() {
       if (!r.ok) {
         const c = d?.detail?.code || "";
         const msg =
-          c === "INVALID_CODE"        ? "That code doesn't match. Check the latest email." :
-          c === "CODE_ALREADY_USED"   ? "That code was already used. Request a new one." :
-          c === "CODE_EXPIRED"        ? "That code has expired. Request a new one." :
-          c === "INVALID_CODE_FORMAT" ? "The code must be 6 digits." :
-          `Sign-in failed (${r.status}).`;
+          c === "INVALID_CODE"        ? m.signin.codeMismatch :
+          c === "CODE_ALREADY_USED"   ? m.signin.codeUsed :
+          c === "CODE_EXPIRED"        ? m.signin.codeExpired :
+          c === "INVALID_CODE_FORMAT" ? m.signin.codeFormat :
+          m.signin.signInFailed(r.status);
         setSignInState("error");
         setSignInMsg(msg);
         return;
@@ -369,7 +364,7 @@ export default function Account() {
       setSignInCode("");
     } catch (err: any) {
       setSignInState("error");
-      setSignInMsg(`Network error (${err?.message || "unknown"}).`);
+      setSignInMsg(m.account.networkError(err?.message || "unknown"));
     }
   }
 
@@ -387,7 +382,7 @@ export default function Account() {
     if (r.ok && body.checkout_url) {
       window.location.href = body.checkout_url;
     } else {
-      setError(body?.detail?.message || body?.detail?.code || "Top-up failed");
+      setError(body?.detail?.message || body?.detail?.code || m.account.topupFailed);
     }
   }
 
@@ -400,30 +395,26 @@ export default function Account() {
     const body = await r.json();
     if (r.ok) {
       // Refresh balance after release
-      const m = await fetch(`${API_URL}/v1/account/me`, {
+      const meResp = await fetch(`${API_URL}/v1/account/me`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
-      if (m.ok) setMe(await m.json());
+      if (meResp.ok) setMe(await meResp.json());
       setTopupBanner({
         kind: "success",
         message:
           body.released_count > 0
-            ? `${body.released_count} stuck hold${
-                body.released_count > 1 ? "s" : ""
-              } released. Your available credits have been restored.`
-            : "No stuck holds found.",
+            ? m.account.holdsReleased(body.released_count)
+            : m.account.noStuckHolds,
       });
     } else {
-      setError(body?.detail?.code || "Release failed");
+      setError(body?.detail?.code || m.account.releaseFailed);
     }
   }
 
   async function regenerate() {
     if (!apiKey) return;
     if (
-      !confirm(
-        "Issue a new API key? Your current key will stop working immediately."
-      )
+      !confirm(m.account.regenerateConfirm)
     )
       return;
     const r = await fetch(`${API_URL}/v1/account/regenerate_key`, {
@@ -438,7 +429,7 @@ export default function Account() {
         sessionStorage.setItem("drawtree_api_key", body.api_key);
       } catch {}
     } else {
-      setError(body?.detail?.code || "Regenerate failed");
+      setError(body?.detail?.code || m.account.regenerateFailed);
     }
   }
 
@@ -452,16 +443,13 @@ export default function Account() {
           href="/"
           className="text-xs text-muted underline-offset-4 hover:underline"
         >
-          ← Drawtree
+          {m.common.backToHome}
         </Link>
-        <h1 className="text-3xl tracking-tight mt-3">Sign in</h1>
-        <p className="text-muted text-sm mt-2">
-          Enter your email and we&apos;ll email you a 6-digit code (and a
-          backup magic link). No password needed.
-        </p>
+        <h1 className="text-3xl tracking-tight mt-3">{m.account.signInTitle}</h1>
+        <p className="text-muted text-sm mt-2">{m.account.signInIntro}</p>
 
         {signInState === "verifying" && (
-          <div className="mt-6 text-sm text-muted">Signing you in…</div>
+          <div className="mt-6 text-sm text-muted">{m.account.signingIn}</div>
         )}
 
         {/* Stage 1 — email form. Shown when we haven't sent a code yet. */}
@@ -470,7 +458,7 @@ export default function Account() {
             <input
               type="email"
               required
-              placeholder="you@example.com"
+              placeholder={m.signup.emailPlaceholder}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-line rounded text-sm"
@@ -480,7 +468,7 @@ export default function Account() {
               disabled={signInState === "sending"}
               className="w-full px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
             >
-              {signInState === "sending" ? "Sending…" : "Email me a code"}
+              {signInState === "sending" ? m.signin.sending : m.signin.emailMeCode}
             </button>
           </form>
         )}
@@ -489,10 +477,7 @@ export default function Account() {
         {signInState === "code-entry" && (
           <div className="mt-6 space-y-3">
             <div className="text-xs text-muted">
-              Code sent to{" "}
-              <strong className="text-ink">{email}</strong>. Check your
-              inbox (and spam). Type the 6 digits below, or click the
-              backup link in the email.
+              {m.account.codeSentLong(email)}
             </div>
             <form onSubmit={submitCode} className="space-y-3">
               <input
@@ -503,7 +488,7 @@ export default function Account() {
                 maxLength={11}
                 value={signInCode}
                 onChange={(e) => setSignInCode(e.target.value)}
-                placeholder="123 456"
+                placeholder={m.signin.codePlaceholder}
                 className="w-full px-3 py-3 border border-line rounded text-lg font-mono tracking-widest text-center focus:outline-none focus:border-ink"
               />
               <button
@@ -511,7 +496,7 @@ export default function Account() {
                 disabled={signInCode.replace(/\D/g, "").length !== 6}
                 className="w-full px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 disabled:opacity-50"
               >
-                Sign in
+                {m.signin.signIn}
               </button>
             </form>
             <div className="flex items-center justify-between text-[11px] text-muted">
@@ -524,7 +509,7 @@ export default function Account() {
                 }}
                 className="underline-offset-4 hover:underline"
               >
-                ← Change email
+                {m.signin.changeEmail}
               </button>
               <button
                 type="button"
@@ -537,7 +522,7 @@ export default function Account() {
                 }}
                 className="underline-offset-4 hover:underline"
               >
-                Resend code
+                {m.signin.resendCode}
               </button>
             </div>
           </div>
@@ -564,7 +549,7 @@ export default function Account() {
             )}
             {devModeCode && (
               <div className="mt-2 text-xs">
-                Dev-mode code:{" "}
+                {m.account.devModeCode}{" "}
                 <code className="font-mono bg-white px-1 py-0.5 rounded">
                   {devModeCode}
                 </code>
@@ -575,20 +560,20 @@ export default function Account() {
 
         <div className="mt-8 border-t border-line pt-6 text-xs text-muted">
           <p>
-            New here?{" "}
+            {m.account.newHere}{" "}
             <Link href="/signup" className="underline">
-              Create an account
+              {m.account.createAccount}
             </Link>
             .
           </p>
           <p className="mt-3">
-            Have your API key?{" "}
+            {m.account.haveKey}{" "}
             <button
               type="button"
               onClick={() => setShowKeyFallback((v) => !v)}
               className="underline"
             >
-              Use it instead
+              {m.account.useItInstead}
             </button>
           </p>
           {showKeyFallback && (
@@ -601,7 +586,7 @@ export default function Account() {
                 className="w-full px-3 py-2 border border-line rounded text-sm font-mono"
               />
               <p className="text-[11px] text-muted mt-2">
-                Your key stays in this browser — it is not stored on the server.
+                {m.account.keyStaysInBrowser}
               </p>
             </div>
           )}
@@ -619,10 +604,10 @@ export default function Account() {
         href="/"
         className="text-xs text-muted underline-offset-4 hover:underline"
       >
-        ← Drawtree
+        {m.common.backToHome}
       </Link>
       <div className="mt-3 flex items-baseline justify-between">
-        <h1 className="text-3xl tracking-tight">My account</h1>
+        <h1 className="text-3xl tracking-tight">{m.account.title}</h1>
         <button
           onClick={() => {
             try {
@@ -635,7 +620,7 @@ export default function Account() {
           }}
           className="text-xs text-muted underline-offset-4 hover:underline"
         >
-          Sign out
+          {m.common.signOut}
         </button>
       </div>
 
@@ -669,7 +654,7 @@ export default function Account() {
         </div>
       )}
 
-      {loading && <p className="text-sm text-muted mt-4">Loading…</p>}
+      {loading && <p className="text-sm text-muted mt-4">{m.common.loading}</p>}
       {error && (
         <div className="mt-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
           {error}
@@ -679,12 +664,10 @@ export default function Account() {
       {newKey && (
         <section className="mt-6 border border-emerald-200 bg-emerald-50/60 rounded p-5">
           <div className="text-xs uppercase tracking-wider text-emerald-800 mb-1">
-            Your API key — copy it now
+            {m.account.newKeyTitle}
           </div>
           <p className="text-xs text-emerald-900/70 mb-3">
-            This is the only time it will be shown. You&apos;ll need it to
-            connect your MCP client. If you lose it, sign in by email again
-            to get a fresh one.
+            {m.account.newKeyNote}
           </p>
           <code className="text-xs font-mono break-all block bg-white border border-emerald-200 rounded px-3 py-2">
             {newKey}
@@ -693,7 +676,7 @@ export default function Account() {
             onClick={() => navigator.clipboard.writeText(newKey)}
             className="mt-3 px-3 py-1.5 text-xs border border-emerald-300 bg-white rounded hover:bg-emerald-50"
           >
-            Copy
+            {m.common.copy}
           </button>
         </section>
       )}
@@ -702,15 +685,14 @@ export default function Account() {
         <>
           <section className="mt-8 border border-line rounded p-6">
             <div className="text-xs uppercase tracking-wider text-muted mb-1">
-              Balance
+              {m.account.balance}
             </div>
             <div className="text-4xl tracking-tight">
               {me.available}
-              <span className="text-sm text-muted ml-2">available credits</span>
+              <span className="text-sm text-muted ml-2">{m.account.availableCredits}</span>
             </div>
             <div className="text-xs text-muted mt-2">
-              Total balance {me.balance}
-              {me.held > 0 ? ` · ${me.held} held` : ""}
+              {m.account.totalBalance(me.balance, me.held)}
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
@@ -720,12 +702,12 @@ export default function Account() {
                   onClick={() => startTopup(p)}
                   className="px-3 py-2 text-sm border border-line rounded hover:bg-line/40"
                 >
-                  + ${p} ({Number(p) * 10} credits)
+                  {m.account.topupButton(p, Number(p) * 10)}
                 </button>
               ))}
             </div>
             <div className="text-[11px] text-muted mt-2">
-              $1 USD = 10 credits.
+              {m.account.conversion}
             </div>
           </section>
 
@@ -737,18 +719,16 @@ export default function Account() {
             <section className="mt-6 border border-line rounded p-6">
               <div className="flex items-baseline justify-between gap-3">
                 <div>
-                  <h2 className="text-lg">Connect Draw Tree to your AI</h2>
+                  <h2 className="text-lg">{m.account.connectTitle}</h2>
                   <p className="text-xs text-muted mt-1">
-                    Install the MCP server in ChatGPT, Claude.ai, Perplexity,
-                    Claude Code, Codex, or Claude Desktop. The setup guide
-                    walks through it step by step.
+                    {m.account.connectNote}
                   </p>
                 </div>
                 <Link
                   href="/start"
                   className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 transition shrink-0"
                 >
-                  Open setup guide →
+                  {m.account.openSetupGuide}
                 </Link>
               </div>
             </section>
@@ -757,24 +737,22 @@ export default function Account() {
           {workspace && (
             <section className="mt-6 border border-line rounded p-6">
               <div className="flex items-baseline justify-between mb-3">
-                <h2 className="text-lg">My workspace</h2>
+                <h2 className="text-lg">{m.account.workspace}</h2>
                 <span className="text-xs text-muted">
-                  {workspace.draft_count} draft{workspace.draft_count === 1 ? "" : "s"} ·{" "}
-                  {workspace.tree_count} tree{workspace.tree_count === 1 ? "" : "s"}
+                  {m.account.workspaceCounts(workspace.draft_count, workspace.tree_count)}
                 </span>
               </div>
 
               {workspace.draft_count === 0 && workspace.tree_count === 0 && (
                 <p className="text-sm text-muted">
-                  No work yet. Start a new tree by talking to your AI client with
-                  the Draw Tree MCP connector set up.
+                  {m.account.noWorkYet}
                 </p>
               )}
 
               {workspace.draft_count > 0 && (
                 <div className="mb-4">
                   <h3 className="text-xs uppercase tracking-wider text-muted mb-2">
-                    Drafts in progress
+                    {m.account.draftsInProgress}
                   </h3>
                   <ul className="divide-y divide-line border border-line rounded">
                     {workspace.drafts.map((d) => (
@@ -786,20 +764,19 @@ export default function Account() {
                           <div className="min-w-0 flex-1">
                             <div className="font-medium">{d.ticker}</div>
                             <div className="text-xs text-muted truncate">
-                              {d.stage.toLowerCase().replace(/_/g, " ")} · next:{" "}
+                              {d.stage.toLowerCase().replace(/_/g, " ")} · {m.account.nextLabel}{" "}
                               <code className="text-[11px]">
                                 {d.suggested_next_tool || "—"}
                               </code>
                             </div>
                           </div>
-                          <span className="text-xs text-muted shrink-0">View →</span>
+                          <span className="text-xs text-muted shrink-0">{m.account.view}</span>
                         </Link>
                       </li>
                     ))}
                   </ul>
                   <p className="text-[11px] text-muted mt-2">
-                    Resume any draft by asking your AI client to continue the
-                    relevant ticker. The next tool to call is shown above.
+                    {m.account.resumeNote}
                   </p>
                 </div>
               )}
@@ -807,7 +784,7 @@ export default function Account() {
               {workspace.tree_count > 0 && (
                 <div>
                   <h3 className="text-xs uppercase tracking-wider text-muted mb-2">
-                    Committed trees
+                    {m.account.committedTrees}
                   </h3>
                   <ul className="divide-y divide-line border border-line rounded">
                     {workspace.trees.map((t) => {
@@ -832,10 +809,10 @@ export default function Account() {
                                 </span>
                               </div>
                               <div className="text-xs text-muted truncate">
-                                {v ? `Verdict: ${v}` : "No verdict yet"}
+                                {v ? m.account.verdictLabel(String(v)) : m.account.noVerdictYet}
                               </div>
                             </div>
-                            <span className="text-xs text-muted shrink-0">View →</span>
+                            <span className="text-xs text-muted shrink-0">{m.account.view}</span>
                           </Link>
                         </li>
                       );
@@ -851,47 +828,44 @@ export default function Account() {
               instructions, server URL, and auth header details. */}
 
           <section className="mt-6 border border-line rounded p-6">
-            <h2 className="text-lg">Account details</h2>
+            <h2 className="text-lg">{m.account.accountDetails}</h2>
             <div className="mt-3 text-sm space-y-2">
               <div className="flex justify-between">
-                <span className="text-muted">Email</span>
+                <span className="text-muted">{m.account.email}</span>
                 <span>{me.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Handle</span>
+                <span className="text-muted">{m.account.handle}</span>
                 <code className="text-xs">{me.handle}</code>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Display name</span>
+                <span className="text-muted">{m.account.displayName}</span>
                 <span>{me.display_name}</span>
               </div>
             </div>
             <div className="mt-5 pt-4 border-t border-line">
-              <h3 className="text-sm font-medium">Release stuck credits</h3>
+              <h3 className="text-sm font-medium">{m.account.releaseTitle}</h3>
               <p className="text-xs text-muted mt-1">
-                If credits show as &ldquo;held&rdquo; but nothing is running
-                (e.g. a tool crashed mid-call), this refunds every pending
-                hold older than 5 minutes back to your available balance.
+                {m.account.releaseNote}
               </p>
               <button
                 onClick={releaseHolds}
                 className="mt-3 px-3 py-1.5 text-xs border border-line rounded hover:bg-line/40"
               >
-                Release stuck credits
+                {m.account.releaseButton}
               </button>
             </div>
 
             <div className="mt-5 pt-4 border-t border-line">
-              <h3 className="text-sm font-medium">Rotate API key</h3>
+              <h3 className="text-sm font-medium">{m.account.rotateTitle}</h3>
               <p className="text-xs text-muted mt-1">
-                If you suspect your key is compromised. Your current key stops
-                working immediately.
+                {m.account.rotateNote}
               </p>
               <button
                 onClick={regenerate}
                 className="mt-3 px-3 py-1.5 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50"
               >
-                Regenerate key
+                {m.account.rotateButton}
               </button>
             </div>
           </section>

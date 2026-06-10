@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import FrameworkView, { FrameworkData } from "../../_components/FrameworkView";
 import ErrorBoundary from "../../_components/ErrorBoundary";
+import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 const API_URL = "https://drawtree-api.onrender.com";
 
@@ -72,6 +73,7 @@ function MonitorCadenceCard({
   initialCcEmails: string[];
   onSaved?: () => void;
 }) {
+  const { m } = useI18n();
   const [cadence, setCadence] = useState(initialCadence || "none");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -83,14 +85,14 @@ function MonitorCadenceCard({
   }, [initialCadence]);
 
   const cadenceLabel: Record<string, string> = {
-    daily: "Daily · 09:00 HKT",
-    weekly: "Weekly · Saturday 09:00 HKT",
-    none: "Off",
+    daily: m.tree.cadenceDaily,
+    weekly: m.tree.cadenceWeekly,
+    none: m.tree.cadenceOff,
   };
   const cadenceCost: Record<string, string> = {
-    daily: "~5 credits/run × ~22 runs/month",
-    weekly: "~5 credits/run × ~4 runs/month",
-    none: "No automated runs",
+    daily: m.tree.costDaily,
+    weekly: m.tree.costWeekly,
+    none: m.tree.costNone,
   };
 
   async function save(next: string) {
@@ -117,7 +119,7 @@ function MonitorCadenceCard({
       setEditing(false);
       onSaved?.();
     } catch (e: any) {
-      setErr(e?.message || "Failed to save");
+      setErr(e?.message || m.tree.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -127,14 +129,14 @@ function MonitorCadenceCard({
     <div className="mb-5 border border-line rounded p-4 bg-paper/40">
       <div className="flex items-baseline justify-between gap-3">
         <div className="text-xs uppercase tracking-wider text-muted">
-          Monitoring frequency
+          {m.tree.monitoringFrequency}
         </div>
         {!editing && (
           <button
             onClick={() => setEditing(true)}
             className="text-xs text-muted hover:underline"
           >
-            Edit
+            {m.common.edit}
           </button>
         )}
       </div>
@@ -170,9 +172,9 @@ function MonitorCadenceCard({
               className="text-xs text-muted hover:underline"
               disabled={saving}
             >
-              Cancel
+              {m.common.cancel}
             </button>
-            {saving && <span className="text-xs text-muted">Saving…</span>}
+            {saving && <span className="text-xs text-muted">{m.common.saving}</span>}
           </div>
           {err && (
             <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
@@ -191,6 +193,7 @@ export default function TreePage({
   params: { tree_id: string };
 }) {
   const { tree_id } = params;
+  const { m, locale } = useI18n();
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [data, setData] = useState<FrameworkData | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -204,7 +207,7 @@ export default function TreePage({
       const k = sessionStorage.getItem("drawtree_api_key");
       if (k) setApiKey(k);
       else {
-        setError("Not signed in. Open /account first.");
+        setError(m.tree.notSignedIn);
         setLoading(false);
       }
     } catch {}
@@ -261,7 +264,7 @@ export default function TreePage({
       }
       setData(normalizeTreePayload(t, draftEvidence));
     } catch (e: any) {
-      setError(`Failed to load tree (${e?.message || "unknown"})`);
+      setError(m.tree.loadFailed(e?.message || "unknown"));
     } finally {
       setLoading(false);
     }
@@ -278,10 +281,10 @@ export default function TreePage({
         href="/account"
         className="text-xs text-muted underline-offset-4 hover:underline"
       >
-        ← My account
+        {m.common.backToAccount}
       </Link>
 
-      {loading && <p className="mt-6 text-sm text-muted">Loading tree…</p>}
+      {loading && <p className="mt-6 text-sm text-muted">{m.tree.loadingTree}</p>}
       {error && (
         <div className="mt-6 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
           {error}
@@ -299,7 +302,9 @@ export default function TreePage({
             </div>
             {data.committed_at && (
               <p className="text-xs text-muted mt-1">
-                Committed {new Date(data.committed_at).toLocaleDateString()}
+                {m.tree.committedOn(
+                  new Date(data.committed_at).toLocaleDateString(m.common.dateLocale),
+                )}
               </p>
             )}
             <p className="text-[11px] text-muted mt-2 font-mono">
@@ -318,12 +323,14 @@ export default function TreePage({
           )}
           {draftId && (
             <div className="mb-5 text-xs text-muted bg-paper border border-line rounded px-3 py-2">
-              You can refresh or add evidence on any leaf below. Edits attach
-              to the source draft, so the next time you re-commit this tree
-              the new evidence will be baked in.
+              {m.tree.evidenceNote}
             </div>
           )}
-          <ErrorBoundary label="Tree viewer">
+          <ErrorBoundary
+            label={m.tree.viewerLabel}
+            errorTitle={m.errorBoundary.hitAnError}
+            tryAgainLabel={m.errorBoundary.tryAgain}
+          >
             <FrameworkView
               data={data}
               draftId={draftId || undefined}
