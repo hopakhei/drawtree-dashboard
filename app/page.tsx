@@ -31,6 +31,12 @@ export default async function Home() {
           >
             {m.home.myAccount}
           </Link>
+          <Link
+            href="/portfolio"
+            className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
+          >
+            {m.portfolio.navLabel} →
+          </Link>
         </div>
         <div className="mt-4 flex gap-4 text-xs text-muted">
           <Link href="/spec" className="underline-offset-4 hover:underline">

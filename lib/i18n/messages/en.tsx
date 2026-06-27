@@ -854,6 +854,83 @@ const en = {
     hitAnError: (label: string) => `${label} hit an error`,
     tryAgain: "Try again",
   },
+
+  portfolio: {
+    navLabel: "Position sizing",
+    title: "Position sizing & rebalancing",
+    subtitle:
+      "Turn your stock ideas into optimal target weights — Kelly-sized, diversified by the Fundamental Law of Active Management, capped, and turned into a one-click broker rebalance.",
+    loginNudge:
+      "The calculator is free for everyone. Log in to import calibrated conviction from your Draw Tree theses and to generate broker rebalance orders.",
+    loggedInAs: (handle: string) => `Signed in as ${handle}`,
+
+    ideasTitle: "Your ideas",
+    ideasHint:
+      "Add each thesis with its bull / bear targets and conviction p. Names whose two-case edge is negative are flagged and dropped before sizing.",
+    addIdea: "+ Add idea",
+    remove: "Remove",
+    ticker: "Ticker",
+    sector: "Sector",
+    current: "Current",
+    bull: "Bull",
+    bear: "Bear",
+    conviction: "Conviction p",
+    lotSize: "Board lot",
+    hypothesis: "Hypothesis (optional)",
+    importFromTree: "Import p ↓",
+    importing: "Importing…",
+    importedFrom: (h: string) => `Imported from ${h}`,
+    importFailed: "No committed tree found for that ticker.",
+    importNeedsTicker: "Enter a ticker first.",
+    importLoginRequired: "Log in to import calibrated conviction.",
+
+    advanced: "Advanced parameters",
+    kellyFraction: "Kelly fraction (c)",
+    positionCap: "Position cap",
+    haircutLambda: "Haircut λ",
+    noTradeThreshold: "No-trade threshold",
+    paramsHint:
+      "Quarter-Kelly (0.25) is the default margin of safety — never full Kelly. Cap is the hard per-name ceiling. λ tunes how aggressively correlated names are shaved.",
+
+    resultsTitle: "Target portfolio",
+    emptyResults:
+      "Add at least one idea with a bull target above — and a bear target below — the current price.",
+    targetWeight: "Target",
+    rawKelly: "Raw Kelly",
+    cash: "Cash",
+    cashDiversification: "Cash (diversification limit)",
+    portfolioConviction: "Portfolio conviction",
+    portfolioConvictionHint:
+      "Sum of raw Kelly fractions before normalization. Low = weak ideas; a cash fallback = too few ideas.",
+    flagDoNotBuy: "do not buy",
+    flagCapped: "capped",
+    flagHaircut: "haircut",
+    excludedTitle: "Excluded",
+    warningsTitle: "Notes",
+
+    rebalanceTitle: "Rebalance preview",
+    rebalanceLocked: "Log in to generate broker rebalance orders.",
+    broker: "Broker",
+    nlv: "Net liquidation value",
+    currentShares: "Current shares held",
+    sharesPlaceholder: "shares",
+    noPositions: "Leave blank for a fresh account — every target weight becomes a BUY.",
+    orders: "Orders",
+    side: "Side",
+    qty: "Qty",
+    drift: "Drift",
+    noOrders: "No orders — every position is already within the no-trade threshold.",
+    skipped: "Skipped",
+    skipBelowThreshold: "below no-trade threshold",
+    skipNoPrice: "no price",
+    skipLotZero: "rounds to zero lots",
+    executeDisabled: "Execute — connect broker",
+    executeNote:
+      "Preview only. Live execution runs through the IBKR / Futu MCP with a paper-first default and an explicit preview-then-confirm step — not enabled in this build.",
+    persistenceNote: "Saving portfolios to your account is coming soon.",
+    sourceManual: "manual",
+    sourceMcp: "Draw Tree",
+  },
 };
 
 export type Messages = typeof en;

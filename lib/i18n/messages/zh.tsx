@@ -799,6 +799,82 @@ const zh = {
     hitAnError: (label: string) => `${label}發生錯誤`,
     tryAgain: "重試",
   },
+
+  portfolio: {
+    navLabel: "倉位配置",
+    title: "倉位配置與再平衡",
+    subtitle:
+      "將你的股票想法轉化為最佳目標權重——以凱利公式定注、按主動管理基本定律分散、設上限，並一鍵生成券商再平衡指令。",
+    loginNudge:
+      "計算機對所有人免費。登入後可從你的 Draw Tree 論點匯入校準後的信心水平，並生成券商再平衡指令。",
+    loggedInAs: (handle: string) => `已登入：${handle}`,
+
+    ideasTitle: "你的想法",
+    ideasHint:
+      "為每個論點填入牛市／熊市目標價與信心水平 p。兩情境邊際為負的標的會被標記並在配置前剔除。",
+    addIdea: "＋ 新增想法",
+    remove: "移除",
+    ticker: "代號",
+    sector: "行業",
+    current: "現價",
+    bull: "牛市",
+    bear: "熊市",
+    conviction: "信心水平 p",
+    lotSize: "每手股數",
+    hypothesis: "假設（選填）",
+    importFromTree: "匯入 p ↓",
+    importing: "匯入中…",
+    importedFrom: (h: string) => `已自 ${h} 匯入`,
+    importFailed: "找不到該代號已提交的樹。",
+    importNeedsTicker: "請先輸入代號。",
+    importLoginRequired: "登入後可匯入校準後的信心水平。",
+
+    advanced: "進階參數",
+    kellyFraction: "凱利分數（c）",
+    positionCap: "單一倉位上限",
+    haircutLambda: "折讓 λ",
+    noTradeThreshold: "免交易門檻",
+    paramsHint:
+      "四分之一凱利（0.25）為預設安全邊際——絕不使用全凱利。上限為單一標的硬性天花板。λ 調節對相關標的折讓的力度。",
+
+    resultsTitle: "目標組合",
+    emptyResults: "至少新增一個想法：牛市目標價高於現價、熊市目標價低於現價。",
+    targetWeight: "目標",
+    rawKelly: "原始凱利",
+    cash: "現金",
+    cashDiversification: "現金（分散限制）",
+    portfolioConviction: "組合信心",
+    portfolioConvictionHint:
+      "正規化前的原始凱利分數總和。偏低＝想法薄弱；出現現金回退＝想法太少。",
+    flagDoNotBuy: "不要買入",
+    flagCapped: "已封頂",
+    flagHaircut: "已折讓",
+    excludedTitle: "已剔除",
+    warningsTitle: "備註",
+
+    rebalanceTitle: "再平衡預覽",
+    rebalanceLocked: "登入後可生成券商再平衡指令。",
+    broker: "券商",
+    nlv: "淨清算價值",
+    currentShares: "目前持股",
+    sharesPlaceholder: "股數",
+    noPositions: "全新帳戶可留空——每個目標權重都會變成買入。",
+    orders: "指令",
+    side: "方向",
+    qty: "數量",
+    drift: "偏離",
+    noOrders: "無指令——每個倉位均已在免交易門檻之內。",
+    skipped: "已略過",
+    skipBelowThreshold: "低於免交易門檻",
+    skipNoPrice: "無價格",
+    skipLotZero: "不足一手",
+    executeDisabled: "執行——連接券商",
+    executeNote:
+      "僅供預覽。實際執行透過 IBKR／Futu MCP，預設為模擬盤優先，並須經明確的「先預覽後確認」步驟——本版本尚未啟用。",
+    persistenceNote: "將組合儲存至你的帳戶——即將推出。",
+    sourceManual: "手動",
+    sourceMcp: "Draw Tree",
+  },
 } satisfies Messages;
 
 export default zh;

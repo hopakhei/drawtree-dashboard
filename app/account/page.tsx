@@ -608,20 +608,28 @@ export default function Account() {
       </Link>
       <div className="mt-3 flex items-baseline justify-between">
         <h1 className="text-3xl tracking-tight">{m.account.title}</h1>
-        <button
-          onClick={() => {
-            try {
-              sessionStorage.removeItem("drawtree_api_key");
-            } catch {}
-            setApiKey("");
-            setMe(null);
-            setNewKey(null);
-            setTopupBanner(null);
-          }}
-          className="text-xs text-muted underline-offset-4 hover:underline"
-        >
-          {m.common.signOut}
-        </button>
+        <div className="flex items-baseline gap-4">
+          <Link
+            href="/portfolio"
+            className="text-xs text-muted underline-offset-4 hover:underline"
+          >
+            {m.portfolio.navLabel} →
+          </Link>
+          <button
+            onClick={() => {
+              try {
+                sessionStorage.removeItem("drawtree_api_key");
+              } catch {}
+              setApiKey("");
+              setMe(null);
+              setNewKey(null);
+              setTopupBanner(null);
+            }}
+            className="text-xs text-muted underline-offset-4 hover:underline"
+          >
+            {m.common.signOut}
+          </button>
+        </div>
       </div>
 
       {topupBanner && (
