@@ -19,6 +19,55 @@ type TreeResponse = {
   verdict: any;
 };
 
+// Map the parsed Section X scenario rows (an array of
+// `{name: "Bear"|"Base"|"Bull", implied_price, vs_current_pct, rationale,
+//  verdict_pattern, ... }`) plus the live `scenarios.computed` block into
+// the `{ bull, base, bear, current_price, method, expected }` shape that
+// ScenarioBlock renders. Returns null when nothing is populated so the
+// scenarios block is hidden on early drafts.
+function assembleScenarios(p: any): any {
+  if (!p || typeof p !== "object") return null;
+  const live = (p.scenarios && typeof p.scenarios === "object") ? p.scenarios : null;
+  const valuation = (p.valuation && typeof p.valuation === "object") ? p.valuation : null;
+  const rows = Array.isArray(valuation?.scenarios) ? valuation.scenarios : [];
+  if (!live && rows.length === 0) return null;
+
+  // Lookup parsed row by canonical name. The parser writes name="Bear" |
+  // "Base" | "Bull" (capitalized) per _detect_scenario_name.
+  const rowByName: Record<string, any> = {};
+  for (const r of rows) {
+    if (r && typeof r.name === "string") {
+      rowByName[r.name.toLowerCase()] = r;
+    }
+  }
+  const buildTier = (key: "bull" | "base" | "bear") => {
+    const r = rowByName[key];
+    if (!r) return undefined;
+    const value = typeof r.implied_price === "number" ? r.implied_price : undefined;
+    const pct   = typeof r.vs_current_pct === "number" ? r.vs_current_pct : undefined;
+    if (value === undefined && pct === undefined) return undefined;
+    return {
+      value,
+      pct,
+      narrative: r.verdict_pattern || r.rationale || undefined,
+    };
+  };
+
+  const computed = (live && typeof live.computed === "object") ? live.computed : null;
+  const current_price =
+    typeof computed?.current_price === "number" ? computed.current_price : undefined;
+
+  return {
+    bull: buildTier("bull"),
+    base: buildTier("base"),
+    bear: buildTier("bear"),
+    current_price,
+    method: valuation?.valuation_method || computed?.valuation_method,
+    peer_tiers: computed?.peers,
+    expected: live?.expected || undefined,
+  };
+}
+
 function normalizeTreePayload(t: TreeResponse, draftEvidence?: Record<string, Record<string, any[]>>): FrameworkData {
   const p = t.payload || {};
   return {
@@ -48,7 +97,17 @@ function normalizeTreePayload(t: TreeResponse, draftEvidence?: Record<string, Re
       })),
     })),
     mece_rationale: p.mece_rationale,
-    scenarios: p.scenarios,
+    // Three-scenario block. The API stores two related structures:
+    //   - p.scenarios = { skeleton, computed }  (live peer prices + anchor
+    //     multiples; no implied per-share prices)
+    //   - p.valuation = { tiers, scenarios: [{ name, implied_price,
+    //     vs_current_pct, ... }], valuation_method } (parsed from the
+    //     Markdown report at commit time)
+    // The ScenarioBlock UI expects { bull, base, bear } with { value, pct,
+    // narrative } shapes plus current_price. We merge both sources here so
+    // the dashboard renders the actual implied prices instead of "Scenarios
+    // scaffolded but not yet computed." Visa 2026-06-27 dashboard regression.
+    scenarios: assembleScenarios(p),
     narrative: p.narrative ? { payload: p.narrative } : null,
     verdict: t.verdict?.h0_verdict || t.verdict?.verdict || t.verdict,
   };
