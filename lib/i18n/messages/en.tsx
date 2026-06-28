@@ -923,9 +923,14 @@ const en = {
     corrPairs: (live: number, total: number) => `${live}/${total} pairs from history`,
     corrObs: (n: number) => `${n} obs`,
     corrShrinkage: (d: string) => `Ledoit-Wolf δ=${d}`,
+    corrWindowDays: (d: number) => `${d}-day window`,
     corrMissing: (names: string) => `No trusted history for ${names} — sector prior used.`,
+    corrMatrixTitle: "Correlation matrix",
+    corrAdjustmentsTitle: "Cross-market adjustments",
+    corrPairLine: (a: string, b: string, sd: string, adj: string) =>
+      `${a} ↔ ${b}: same-day ${sd} → adjusted ${adj}`,
     corrNote:
-      "Correlations drive the Layer-2 diversification haircut. Names without trusted history fall back to a sector prior.",
+      "Correlations drive the Layer-2 diversification haircut. The figure used is the correlation of overlapping multi-day returns, which keeps cross-market dual listings (an ADR and its local share) from being understated by non-overlapping trading hours; the same-day figure is shown alongside. Names without trusted history fall back to a sector prior.",
 
     rebalanceTitle: "Rebalance preview",
     rebalanceLocked: "Log in to generate broker rebalance orders.",

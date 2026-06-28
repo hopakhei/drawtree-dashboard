@@ -4,7 +4,9 @@
    real historical daily prices.
 
    Pipeline: fetch ~6mo daily closes (Yahoo primary, Stooq fallback) → align on
-   common trading dates → daily log returns → Ledoit-Wolf shrunk correlation.
+   common trading dates → daily log returns → same-day + window-adjusted
+   correlations (see lib/portfolio/correlation.ts). Returns both matrices so the
+   UI can show the figures behind the number.
 
    Free, no-key sources. They are unofficial and can rate-limit; any ticker we
    can't price is returned in `missing`, and the engine falls back to its sector
@@ -12,7 +14,7 @@
    heavier math off the client.
    ============================================================================= */
 import { NextRequest, NextResponse } from "next/server";
-import { MIN_OBS, ledoitWolfCorrelation, logReturns } from "@/lib/portfolio/correlation";
+import { MIN_OBS, estimateCorrelations, logReturns } from "@/lib/portfolio/correlation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,8 +45,8 @@ export async function POST(req: NextRequest) {
       source: "none",
       tickers: [],
       rho: [],
-      delta: 0,
-      rbar: 0,
+      sameDay: [],
+      corrWindow: 0,
       obs: 0,
       missing: tickers,
       note: "Need at least two tickers to estimate correlations.",
@@ -76,8 +78,8 @@ export async function POST(req: NextRequest) {
       source: "none",
       tickers: [],
       rho: [],
-      delta: 0,
-      rbar: 0,
+      sameDay: [],
+      corrWindow: 0,
       obs: 0,
       missing: tickers,
       note: "Could not retrieve enough history; using sector fallback.",
@@ -101,8 +103,8 @@ export async function POST(req: NextRequest) {
       source: good[0].source,
       tickers: [],
       rho: [],
-      delta: 0,
-      rbar: 0,
+      sameDay: [],
+      corrWindow: 0,
       obs: commonDates.length,
       missing: tickers,
       note: `Only ${commonDates.length} overlapping observations (< ${MIN_OBS + 1}); using sector fallback.`,
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
 
   const returns = good.map((g) => logReturns(commonDates!.map((d) => g.series.get(d)!)));
   const labels = good.map((g) => g.tk);
-  const est = ledoitWolfCorrelation(labels, returns);
+  const est = estimateCorrelations(labels, returns, 5);
 
   const sources = Array.from(new Set(good.map((g) => g.source)));
   return NextResponse.json({
@@ -119,9 +121,9 @@ export async function POST(req: NextRequest) {
     window: "6mo",
     source: sources.length === 1 ? sources[0] : "mixed",
     tickers: est.tickers,
-    rho: est.corr,
-    delta: est.delta,
-    rbar: est.rbar,
+    rho: est.used,
+    sameDay: est.sameDay,
+    corrWindow: est.window,
     obs: est.T,
     missing,
   });
