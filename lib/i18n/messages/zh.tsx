@@ -811,7 +811,7 @@ const zh = {
 
     ideasTitle: "你的想法",
     ideasHint:
-      "為每個論點填入牛市／熊市目標價與信心水平 p。兩情境邊際為負的標的會被標記並在配置前剔除。",
+      "搜尋代號——現價會自動載入。填入你的牛市／熊市目標價與信心水平 p。兩情境邊際為負的標的會被標記並在配置前剔除。",
     addIdea: "＋ 新增想法",
     remove: "移除",
     ticker: "代號",
@@ -828,6 +828,14 @@ const zh = {
     importFailed: "找不到該代號已提交的樹。",
     importNeedsTicker: "請先輸入代號。",
     importLoginRequired: "登入後可匯入校準後的信心水平。",
+
+    searchPlaceholder: "搜尋代號或公司…",
+    searching: "搜尋中…",
+    noResults: "無相符結果",
+    quoteFetching: "讀取價格中…",
+    quoteFailed: "價格無法取得",
+    priceLive: "實時",
+    infoEmpty: "選擇代號以載入實時價格及資料。",
 
     advanced: "進階參數",
     kellyFraction: "凱利分數（c）",

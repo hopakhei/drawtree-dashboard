@@ -866,7 +866,7 @@ const en = {
 
     ideasTitle: "Your ideas",
     ideasHint:
-      "Add each thesis with its bull / bear targets and conviction p. Names whose two-case edge is negative are flagged and dropped before sizing.",
+      "Search a ticker — its live price loads automatically. Add your bull / bear targets and conviction p. Names whose two-case edge is negative are flagged and dropped before sizing.",
     addIdea: "+ Add idea",
     remove: "Remove",
     ticker: "Ticker",
@@ -883,6 +883,14 @@ const en = {
     importFailed: "No committed tree found for that ticker.",
     importNeedsTicker: "Enter a ticker first.",
     importLoginRequired: "Log in to import calibrated conviction.",
+
+    searchPlaceholder: "Search ticker or company…",
+    searching: "Searching…",
+    noResults: "No matches",
+    quoteFetching: "Fetching price…",
+    quoteFailed: "price unavailable",
+    priceLive: "live",
+    infoEmpty: "Pick a ticker to load its live price and info.",
 
     advanced: "Advanced parameters",
     kellyFraction: "Kelly fraction (c)",

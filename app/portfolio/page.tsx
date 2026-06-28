@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import {
   DEFAULT_PARAMS,
-  SECTORS,
   generateRebalance,
   sizePortfolio,
   type AllocationFlag,
@@ -21,7 +20,27 @@ import {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "https://api.drawtree.capital";
 
-type EditableIdea = Idea & { _import?: "idle" | "loading" | "ok" | "err"; _importMsg?: string };
+type EditableIdea = Idea & {
+  name?: string;
+  _import?: "idle" | "loading" | "ok" | "err";
+  _importMsg?: string;
+};
+
+type Quote = {
+  symbol: string;
+  name: string;
+  price: number;
+  currency: string;
+  exchange: string;
+  previousClose: number | null;
+  changePct: number | null;
+  dayHigh: number | null;
+  dayLow: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+};
+
+type SearchItem = { symbol: string; name: string; exchange: string; type: string };
 
 let _seq = 0;
 function newId(): string {
@@ -31,17 +50,19 @@ function newId(): string {
   return `idea-${++_seq}`;
 }
 
-function blankIdea(seed?: Partial<Idea>): EditableIdea {
+const norm = (s: string) => s.trim().toUpperCase();
+
+function blankIdea(seed?: Partial<EditableIdea>): EditableIdea {
   return {
     id: newId(),
     ticker: "",
+    name: "",
     hypothesis: "",
     bull: 0,
     bear: 0,
     current: 0,
     conviction: 0.6,
     conviction_source: "manual",
-    sector: "Other",
     lot_size: 1,
     _import: "idle",
     ...seed,
@@ -50,6 +71,8 @@ function blankIdea(seed?: Partial<Idea>): EditableIdea {
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const pct0 = (x: number) => `${(x * 100).toFixed(0)}%`;
+const fmtPrice = (x: number) =>
+  x >= 1000 ? x.toLocaleString(undefined, { maximumFractionDigits: 0 }) : x.toFixed(2);
 
 export default function PortfolioPage() {
   const { m } = useI18n();
@@ -76,22 +99,21 @@ export default function PortfolioPage() {
   const [ideas, setIdeas] = useState<EditableIdea[]>([
     blankIdea({
       ticker: "NVDA",
+      name: "NVIDIA Corporation",
       hypothesis: "Data-center demand outruns the Street's growth-halving model.",
       current: 170,
       bull: 260,
       bear: 120,
       conviction: 0.68,
-      sector: "Technology",
     }),
     blankIdea({
-      ticker: "HK.00700",
+      ticker: "0700.HK",
+      name: "Tencent Holdings Ltd.",
       hypothesis: "Ad recovery + payments re-rating; policy overhang fades.",
       current: 420,
       bull: 560,
       bear: 330,
       conviction: 0.6,
-      sector: "Communications",
-      lot_size: 100,
     }),
   ]);
 
@@ -107,7 +129,7 @@ export default function PortfolioPage() {
 
   async function importTree(idea: EditableIdea) {
     if (!loggedIn) return;
-    const ticker = idea.ticker.trim().toUpperCase();
+    const ticker = norm(idea.ticker);
     if (!ticker) {
       patchIdea(idea.id, { _import: "err", _importMsg: t.importNeedsTicker });
       return;
@@ -119,7 +141,6 @@ export default function PortfolioPage() {
       const tree = await r.json();
       const conviction = tree?.aggregation?.conviction;
       const val = tree?.tree?.valuation;
-      const current = val?.snapshot_price;
       const bull = val?.scenarios?.bull?.target_price;
       const bear = val?.scenarios?.bear?.target_price;
       const patch: Partial<EditableIdea> = {
@@ -128,7 +149,6 @@ export default function PortfolioPage() {
         conviction_source: "mcp",
       };
       if (typeof conviction === "number") patch.conviction = conviction;
-      if (typeof current === "number") patch.current = current;
       if (typeof bull === "number") patch.bull = bull;
       if (typeof bear === "number") patch.bear = bear;
       patchIdea(idea.id, patch);
@@ -136,6 +156,52 @@ export default function PortfolioPage() {
       patchIdea(idea.id, { _import: "err", _importMsg: t.importFailed });
     }
   }
+
+  // --- live quotes (current price + general info) --------------------------
+  const [quotes, setQuotes] = useState<Record<string, Quote>>({});
+  const [quoteState, setQuoteState] = useState<Record<string, "loading" | "ok" | "err">>({});
+  const requested = useRef<Set<string>>(new Set());
+
+  const tickerKey = useMemo(
+    () => Array.from(new Set(ideas.map((i) => norm(i.ticker)).filter(Boolean))).sort().join(","),
+    [ideas],
+  );
+
+  useEffect(() => {
+    const tickers = tickerKey ? tickerKey.split(",") : [];
+    tickers.forEach((tk) => {
+      if (requested.current.has(tk)) return;
+      requested.current.add(tk);
+      setQuoteState((s) => ({ ...s, [tk]: "loading" }));
+      fetch(`/api/portfolio/quote?symbol=${encodeURIComponent(tk)}`)
+        .then((r) => r.json())
+        .then((j) => {
+          if (j?.ok && typeof j.price === "number") {
+            setQuotes((q) => ({ ...q, [tk]: j as Quote }));
+            setQuoteState((s) => ({ ...s, [tk]: "ok" }));
+          } else {
+            setQuoteState((s) => ({ ...s, [tk]: "err" }));
+          }
+        })
+        .catch(() => setQuoteState((s) => ({ ...s, [tk]: "err" })));
+    });
+  }, [tickerKey]);
+
+  // Ideas as the engine sees them: live price overrides the stored fallback.
+  const engineIdeas = useMemo<Idea[]>(
+    () =>
+      ideas.map((i) => {
+        const tk = norm(i.ticker);
+        const q = quotes[tk];
+        return {
+          ...i,
+          ticker: tk,
+          current: q && q.price > 0 ? q.price : i.current,
+          lot_size: i.lot_size && i.lot_size > 0 ? i.lot_size : 1,
+        };
+      }),
+    [ideas, quotes],
+  );
 
   // --- params --------------------------------------------------------------
   const [params, setParams] = useState<EngineParams>({ ...DEFAULT_PARAMS });
@@ -152,17 +218,6 @@ export default function PortfolioPage() {
   const [corrSource, setCorrSource] = useState<CorrelationSource | null>(null);
   const [corrMeta, setCorrMeta] = useState<CorrMeta | null>(null);
   const [corrLoading, setCorrLoading] = useState(false);
-
-  // Stable key of the distinct tickers in play — drives the (debounced) fetch.
-  const tickerKey = useMemo(
-    () =>
-      Array.from(
-        new Set(ideas.map((i) => i.ticker.trim().toUpperCase()).filter(Boolean)),
-      )
-        .sort()
-        .join(","),
-    [ideas],
-  );
 
   useEffect(() => {
     const tickers = tickerKey ? tickerKey.split(",") : [];
@@ -218,8 +273,8 @@ export default function PortfolioPage() {
 
   // --- engine (live) -------------------------------------------------------
   const result = useMemo(
-    () => sizePortfolio(ideas, params, corrSource ?? undefined),
-    [ideas, params, corrSource],
+    () => sizePortfolio(engineIdeas, params, corrSource ?? undefined),
+    [engineIdeas, params, corrSource],
   );
   const hasResult = result.allocations.length > 0 || result.cash > 0;
 
@@ -234,8 +289,8 @@ export default function PortfolioPage() {
     const pos = Object.entries(positions)
       .filter(([, sh]) => sh > 0)
       .map(([ticker, shares]) => ({ ticker, shares }));
-    return generateRebalance(result.allocations, ideas, pos, nlv, broker, params);
-  }, [showRebalance, loggedIn, positions, result.allocations, ideas, nlv, broker, params]);
+    return generateRebalance(result.allocations, engineIdeas, pos, nlv, broker, params);
+  }, [showRebalance, loggedIn, positions, result.allocations, engineIdeas, nlv, broker, params]);
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-16">
@@ -250,9 +305,7 @@ export default function PortfolioPage() {
         </p>
         <div
           className={`mt-5 text-sm rounded px-4 py-3 border ${
-            loggedIn
-              ? "text-pos bg-sunken border-line"
-              : "text-muted bg-sunken border-line"
+            loggedIn ? "text-pos bg-sunken border-line" : "text-muted bg-sunken border-line"
           }`}
         >
           {loggedIn ? t.loggedInAs(handle!) : t.loginNudge}
@@ -280,6 +333,8 @@ export default function PortfolioPage() {
               index={idx}
               t={t}
               loggedIn={loggedIn}
+              quote={quotes[norm(idea.ticker)]}
+              quoteStatus={quoteState[norm(idea.ticker)]}
               onPatch={patchIdea}
               onRemove={removeIdea}
               onImport={importTree}
@@ -351,14 +406,10 @@ export default function PortfolioPage() {
               <div className="mt-2 h-1.5 rounded bg-sunken overflow-hidden">
                 <div
                   className="h-full bg-clay"
-                  style={{
-                    width: `${Math.min(100, (result.portfolio_conviction / 3) * 100)}%`,
-                  }}
+                  style={{ width: `${Math.min(100, (result.portfolio_conviction / 3) * 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-muted mt-2 font-serif">
-                {t.portfolioConvictionHint}
-              </p>
+              <p className="text-xs text-muted mt-2 font-serif">{t.portfolioConvictionHint}</p>
             </div>
 
             {/* Correlation provenance (Layer 2) */}
@@ -390,9 +441,7 @@ export default function PortfolioPage() {
                 </div>
               )}
               {!corrLoading && corrMeta?.missing?.length ? (
-                <div className="mt-1 text-muted">
-                  {t.corrMissing(corrMeta.missing.join(", "))}
-                </div>
+                <div className="mt-1 text-muted">{t.corrMissing(corrMeta.missing.join(", "))}</div>
               ) : null}
               <div className="mt-1 text-muted font-serif">{t.corrNote}</div>
             </div>
@@ -425,10 +474,7 @@ export default function PortfolioPage() {
                       : t.cash}
                   </span>
                   <div className="flex-1 h-6 rounded bg-sunken overflow-hidden">
-                    <div
-                      className="h-full bg-line"
-                      style={{ width: `${result.cash * 100}%` }}
-                    />
+                    <div className="h-full bg-line" style={{ width: `${result.cash * 100}%` }} />
                   </div>
                   <span className="w-16 shrink-0 text-right tabular-nums font-mono text-sm text-muted">
                     {pct(result.cash)}
@@ -493,9 +539,7 @@ export default function PortfolioPage() {
             <div className="mt-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                 <label className="block">
-                  <span className="text-xs uppercase tracking-wider text-muted">
-                    {t.broker}
-                  </span>
+                  <span className="text-xs uppercase tracking-wider text-muted">{t.broker}</span>
                   <select
                     value={broker}
                     onChange={(e) => setBroker(e.target.value as Broker)}
@@ -516,7 +560,6 @@ export default function PortfolioPage() {
                 </label>
               </div>
 
-              {/* current positions per target name */}
               <div className="mb-2 text-xs uppercase tracking-wider text-muted">
                 {t.currentShares}
               </div>
@@ -542,7 +585,6 @@ export default function PortfolioPage() {
                 ))}
               </div>
 
-              {/* orders */}
               {rebalance && (
                 <div className="border-t border-line pt-4">
                   <h3 className="text-xs uppercase tracking-wider text-muted mb-3">
@@ -602,7 +644,6 @@ export default function PortfolioPage() {
                     </div>
                   )}
 
-                  {/* execution gate */}
                   <div className="mt-5 flex flex-col gap-2">
                     <button
                       disabled
@@ -631,6 +672,8 @@ function IdeaRow({
   index,
   t,
   loggedIn,
+  quote,
+  quoteStatus,
   onPatch,
   onRemove,
   onImport,
@@ -640,6 +683,8 @@ function IdeaRow({
   index: number;
   t: any;
   loggedIn: boolean;
+  quote?: Quote;
+  quoteStatus?: "loading" | "ok" | "err";
   onPatch: (id: string, patch: Partial<EditableIdea>) => void;
   onRemove: (id: string) => void;
   onImport: (idea: EditableIdea) => void;
@@ -670,36 +715,29 @@ function IdeaRow({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-        <Field label={t.ticker} className="col-span-2 sm:col-span-2">
-          <input
+      {/* Ticker search */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="sm:col-span-1">
+          <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">
+            {t.ticker}
+          </span>
+          <TickerSearch
             value={idea.ticker}
-            onChange={(e) => onPatch(idea.id, { ticker: e.target.value })}
-            placeholder="NVDA"
-            className="w-full px-2 py-1.5 text-sm font-mono border border-line rounded focus:outline-none focus:border-ink"
+            t={t}
+            onSelect={(r) =>
+              onPatch(idea.id, { ticker: r.symbol, name: r.name, _import: "idle", _importMsg: "" })
+            }
           />
-        </Field>
-        <Field label={t.sector}>
-          <select
-            value={idea.sector}
-            onChange={(e) => onPatch(idea.id, { sector: e.target.value })}
-            className="w-full px-2 py-1.5 text-sm border border-line rounded bg-raised focus:outline-none focus:border-ink"
-          >
-            {SECTORS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label={t.current}>
-          <input
-            type="number"
-            value={numOrEmpty(idea.current)}
-            onChange={(e) => onPatch(idea.id, { current: parseFloat(e.target.value) || 0 })}
-            className="w-full px-2 py-1.5 text-sm font-mono tabular-nums border border-line rounded focus:outline-none focus:border-ink"
-          />
-        </Field>
+        </div>
+
+        {/* General info panel */}
+        <div className="sm:col-span-2 flex items-end">
+          <InfoPanel idea={idea} quote={quote} status={quoteStatus} t={t} />
+        </div>
+      </div>
+
+      {/* Thesis inputs */}
+      <div className="grid grid-cols-3 gap-3 mt-3">
         <Field label={t.conviction}>
           <input
             type="number"
@@ -732,14 +770,6 @@ function IdeaRow({
             className="w-full px-2 py-1.5 text-sm font-mono tabular-nums border border-line rounded focus:outline-none focus:border-ink"
           />
         </Field>
-        <Field label={t.lotSize}>
-          <input
-            type="number"
-            value={numOrEmpty(idea.lot_size ?? 1)}
-            onChange={(e) => onPatch(idea.id, { lot_size: parseFloat(e.target.value) || 1 })}
-            className="w-full px-2 py-1.5 text-sm font-mono tabular-nums border border-line rounded focus:outline-none focus:border-ink"
-          />
-        </Field>
       </div>
 
       <input
@@ -760,8 +790,157 @@ function IdeaRow({
           }`}
         >
           {idea._importMsg}
-          {idea._import === "ok" && (
-            <span className="text-muted"> · {t.sourceMcp}</span>
+          {idea._import === "ok" && <span className="text-muted"> · {t.sourceMcp}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoPanel({
+  idea,
+  quote,
+  status,
+  t,
+}: {
+  idea: EditableIdea;
+  quote?: Quote;
+  status?: "loading" | "ok" | "err";
+  t: any;
+}) {
+  if (!idea.ticker) {
+    return <div className="text-xs text-muted font-serif">{t.infoEmpty}</div>;
+  }
+  if (status === "loading" && !quote) {
+    return <div className="text-xs text-muted">{t.quoteFetching}</div>;
+  }
+  if (quote) {
+    const up = (quote.changePct ?? 0) >= 0;
+    return (
+      <div className="w-full rounded bg-sunken border border-line px-3 py-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-sm font-serif truncate">{quote.name || idea.name}</span>
+          <span className="text-[10px] text-muted font-mono shrink-0">{quote.exchange}</span>
+        </div>
+        <div className="mt-1 flex items-baseline gap-2 font-mono tabular-nums">
+          <span className="text-base">
+            {fmtPrice(quote.price)}
+            <span className="text-[10px] text-muted ml-1">{quote.currency}</span>
+          </span>
+          {quote.changePct != null && (
+            <span className={`text-xs ${up ? "text-pos" : "text-neg"}`}>
+              {up ? "+" : ""}
+              {quote.changePct.toFixed(2)}%
+            </span>
+          )}
+          <span className="ml-auto text-[10px] text-muted">{t.priceLive}</span>
+        </div>
+      </div>
+    );
+  }
+  // err / no quote — fall back to stored info
+  return (
+    <div className="w-full rounded bg-sunken border border-line px-3 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-serif truncate">{idea.name || idea.ticker}</span>
+      </div>
+      <div className="mt-1 flex items-baseline gap-2 font-mono tabular-nums">
+        <span className="text-base">{idea.current > 0 ? fmtPrice(idea.current) : "—"}</span>
+        <span className="ml-auto text-[10px] text-neg">{t.quoteFailed}</span>
+      </div>
+    </div>
+  );
+}
+
+function TickerSearch({
+  value,
+  t,
+  onSelect,
+}: {
+  value: string;
+  t: any;
+  onSelect: (r: SearchItem) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<SearchItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const term = q.trim();
+    if (term.length < 1) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+    let ignore = false;
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/portfolio/search?q=${encodeURIComponent(term)}`);
+        const j = await r.json();
+        if (!ignore) setResults(Array.isArray(j?.results) ? j.results : []);
+      } catch {
+        if (!ignore) setResults([]);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }, 250);
+    return () => {
+      ignore = true;
+      clearTimeout(timer);
+    };
+  }, [q, open]);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  return (
+    <div ref={boxRef} className="relative">
+      <input
+        value={open ? q : value}
+        onFocus={() => {
+          setOpen(true);
+          setQ("");
+        }}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+        }}
+        placeholder={t.searchPlaceholder}
+        className="w-full px-2 py-1.5 text-sm font-mono border border-line rounded focus:outline-none focus:border-ink"
+      />
+      {open && q.trim().length > 0 && (
+        <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded border border-line bg-raised shadow-lg">
+          {loading ? (
+            <div className="px-3 py-2 text-xs text-muted">{t.searching}</div>
+          ) : results.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted">{t.noResults}</div>
+          ) : (
+            results.map((r) => (
+              <button
+                key={`${r.symbol}-${r.exchange}`}
+                onClick={() => {
+                  onSelect(r);
+                  setOpen(false);
+                  setQ("");
+                }}
+                className="block w-full text-left px-3 py-2 hover:bg-line/40 border-b border-line last:border-0"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-sm">{r.symbol}</span>
+                  <span className="text-[10px] text-muted shrink-0">{r.exchange}</span>
+                </div>
+                <div className="text-xs text-muted truncate font-serif">{r.name}</div>
+              </button>
+            ))
           )}
         </div>
       )}
@@ -780,9 +959,7 @@ function Field({
 }) {
   return (
     <label className={`block ${className}`}>
-      <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">
-        {label}
-      </span>
+      <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">{label}</span>
       {children}
     </label>
   );
@@ -801,9 +978,7 @@ function ParamField({
 }) {
   return (
     <label className="block">
-      <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">
-        {label}
-      </span>
+      <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">{label}</span>
       <input
         type="number"
         step={step}
@@ -826,8 +1001,6 @@ function FlagPill({ flag, t }: { flag: AllocationFlag; t: any }) {
       ? "text-clay bg-sunken"
       : "text-muted bg-sunken";
   return (
-    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono ${cls}`}>
-      {label}
-    </span>
+    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono ${cls}`}>{label}</span>
   );
 }
