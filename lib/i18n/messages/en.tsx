@@ -908,6 +908,17 @@ const en = {
     excludedTitle: "Excluded",
     warningsTitle: "Notes",
 
+    corrTitle: "Correlations",
+    corrLoading: "estimating from price history…",
+    corrLiveBadge: "live · 6-month daily",
+    corrFallbackBadge: "sector fallback",
+    corrPairs: (live: number, total: number) => `${live}/${total} pairs from history`,
+    corrObs: (n: number) => `${n} obs`,
+    corrShrinkage: (d: string) => `Ledoit-Wolf δ=${d}`,
+    corrMissing: (names: string) => `No trusted history for ${names} — sector prior used.`,
+    corrNote:
+      "Correlations drive the Layer-2 diversification haircut. Names without trusted history fall back to a sector prior.",
+
     rebalanceTitle: "Rebalance preview",
     rebalanceLocked: "Log in to generate broker rebalance orders.",
     broker: "Broker",

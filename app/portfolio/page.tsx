@@ -13,6 +13,10 @@ import {
   type EngineParams,
   type Idea,
 } from "@/lib/portfolio/engine";
+import {
+  buildCorrelationSource,
+  type CorrelationSource,
+} from "@/lib/portfolio/correlation";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "https://api.drawtree.capital";
@@ -137,8 +141,86 @@ export default function PortfolioPage() {
   const [params, setParams] = useState<EngineParams>({ ...DEFAULT_PARAMS });
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // --- correlations from real price history (Layer 2) ----------------------
+  type CorrMeta = {
+    source: string;
+    obs: number;
+    delta: number;
+    missing: string[];
+    note?: string;
+  };
+  const [corrSource, setCorrSource] = useState<CorrelationSource | null>(null);
+  const [corrMeta, setCorrMeta] = useState<CorrMeta | null>(null);
+  const [corrLoading, setCorrLoading] = useState(false);
+
+  // Stable key of the distinct tickers in play — drives the (debounced) fetch.
+  const tickerKey = useMemo(
+    () =>
+      Array.from(
+        new Set(ideas.map((i) => i.ticker.trim().toUpperCase()).filter(Boolean)),
+      )
+        .sort()
+        .join(","),
+    [ideas],
+  );
+
+  useEffect(() => {
+    const tickers = tickerKey ? tickerKey.split(",") : [];
+    if (tickers.length < 2) {
+      setCorrSource(null);
+      setCorrMeta(null);
+      setCorrLoading(false);
+      return;
+    }
+    let ignore = false;
+    setCorrLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const r = await fetch("/api/portfolio/correlations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tickers }),
+        });
+        const j = await r.json();
+        if (ignore) return;
+        if (j?.ok && Array.isArray(j.tickers) && j.tickers.length >= 2) {
+          setCorrSource(() => buildCorrelationSource(j.tickers, j.rho));
+          setCorrMeta({
+            source: j.source,
+            obs: j.obs,
+            delta: j.delta,
+            missing: j.missing || [],
+            note: j.note,
+          });
+        } else {
+          setCorrSource(null);
+          setCorrMeta({
+            source: "none",
+            obs: j?.obs || 0,
+            delta: 0,
+            missing: j?.missing || tickers,
+            note: j?.note,
+          });
+        }
+      } catch {
+        if (ignore) return;
+        setCorrSource(null);
+        setCorrMeta(null);
+      } finally {
+        if (!ignore) setCorrLoading(false);
+      }
+    }, 600);
+    return () => {
+      ignore = true;
+      clearTimeout(timer);
+    };
+  }, [tickerKey]);
+
   // --- engine (live) -------------------------------------------------------
-  const result = useMemo(() => sizePortfolio(ideas, params), [ideas, params]);
+  const result = useMemo(
+    () => sizePortfolio(ideas, params, corrSource ?? undefined),
+    [ideas, params, corrSource],
+  );
   const hasResult = result.allocations.length > 0 || result.cash > 0;
 
   // --- rebalance (logged-in) ----------------------------------------------
@@ -277,6 +359,42 @@ export default function PortfolioPage() {
               <p className="text-xs text-muted mt-2 font-serif">
                 {t.portfolioConvictionHint}
               </p>
+            </div>
+
+            {/* Correlation provenance (Layer 2) */}
+            <div className="mb-6 text-xs rounded border border-line bg-sunken px-3 py-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="uppercase tracking-wider text-muted">{t.corrTitle}</span>
+                {corrLoading ? (
+                  <span className="text-muted">{t.corrLoading}</span>
+                ) : result.corr_pairs_live > 0 ? (
+                  <span className="text-pos">{t.corrLiveBadge}</span>
+                ) : (
+                  <span className="text-muted">{t.corrFallbackBadge}</span>
+                )}
+              </div>
+              {!corrLoading && (
+                <div className="mt-1 text-muted font-mono">
+                  {t.corrPairs(result.corr_pairs_live, result.corr_pairs_total)}
+                  {result.corr_pairs_live > 0 && corrMeta ? (
+                    <>
+                      {" · "}
+                      {t.corrObs(corrMeta.obs)}
+                      {" · "}
+                      {t.corrShrinkage(corrMeta.delta.toFixed(2))}
+                      {corrMeta.source && corrMeta.source !== "none"
+                        ? ` · ${corrMeta.source}`
+                        : ""}
+                    </>
+                  ) : null}
+                </div>
+              )}
+              {!corrLoading && corrMeta?.missing?.length ? (
+                <div className="mt-1 text-muted">
+                  {t.corrMissing(corrMeta.missing.join(", "))}
+                </div>
+              ) : null}
+              <div className="mt-1 text-muted font-serif">{t.corrNote}</div>
             </div>
 
             {/* Allocations */}

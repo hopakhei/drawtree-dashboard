@@ -852,6 +852,17 @@ const zh = {
     excludedTitle: "已剔除",
     warningsTitle: "備註",
 
+    corrTitle: "相關性",
+    corrLoading: "正以歷史價格估算…",
+    corrLiveBadge: "實時 · 6 個月日線",
+    corrFallbackBadge: "行業回退",
+    corrPairs: (live: number, total: number) => `${live}/${total} 組來自歷史`,
+    corrObs: (n: number) => `${n} 個觀測`,
+    corrShrinkage: (d: string) => `Ledoit-Wolf δ=${d}`,
+    corrMissing: (names: string) => `${names} 無可信歷史——改用行業先驗。`,
+    corrNote:
+      "相關性驅動第 2 層的分散折讓。無可信歷史的標的回退至行業先驗。",
+
     rebalanceTitle: "再平衡預覽",
     rebalanceLocked: "登入後可生成券商再平衡指令。",
     broker: "券商",

@@ -9,12 +9,15 @@
    Layer 4  Iterative 33% cap (water-fill) + cash fallback for too-few names
    Layer 5  Rebalance command generator (delta → board-lot orders)
 
-   Covariance note: the spec calls for a Ledoit-Wolf shrunk Ω with a sector-tag
-   fallback for thin-history names. In the browser we have no return history, so
-   this MVP implements the *sector-tag fallback* directly — a same-sector vs.
-   cross-sector correlation prior. The full shrunk-covariance path is post-MVP
-   (it belongs server-side where price history is available).
+   Covariance note: the spec calls for a Ledoit-Wolf shrunk Ω. Layer 2 consumes
+   a CorrelationSource — pairwise correlations estimated from historical daily
+   returns (see lib/portfolio/correlation.ts, fetched server-side in
+   app/api/portfolio/correlations/route.ts). The same-sector / cross-sector
+   prior below is used ONLY as the spec's thin-history fallback: for any pair the
+   history-based source can't price (a freshly-listed name, a failed fetch).
    ============================================================================= */
+
+import type { CorrelationSource } from "./correlation";
 
 export type ConvictionSource = "manual" | "mcp";
 
@@ -72,12 +75,14 @@ export const SECTORS = [
 ] as const;
 export type Sector = (typeof SECTORS)[number];
 
-/** Same known-sector names are treated as highly correlated; everything else
- *  (including "Other"/unknown) gets a low cross-sector prior. */
+/** Thin-history fallback only: same known-sector names are treated as highly
+ *  correlated; everything else (including "Other"/unknown) gets a low cross-
+ *  sector prior. Used when the history-based CorrelationSource can't price a
+ *  pair — never in place of a real estimate. */
 const RHO_SAME_SECTOR = 0.7;
 const RHO_CROSS_SECTOR = 0.15;
 
-function correlation(a: Idea, b: Idea): number {
+function sectorCorrelation(a: Idea, b: Idea): number {
   const sa = (a.sector || "Other").trim();
   const sb = (b.sector || "Other").trim();
   if (sa && sb && sa !== "Other" && sa === sb) return RHO_SAME_SECTOR;
@@ -113,6 +118,10 @@ export type SizeResult = {
   /** Portfolio Conviction meter = Σ raw Kelly over survivors (pre-normalization). */
   portfolio_conviction: number;
   warnings: string[];
+  /** Correlation provenance for Layer 2: how many survivor pairs used a real
+   *  history-based estimate vs. the sector fallback. */
+  corr_pairs_total: number;
+  corr_pairs_live: number;
 };
 
 // ----------------------------------------------------------------------------
@@ -141,7 +150,11 @@ export function rawKelly(idea: Idea, c: number): KellyResult {
 // ----------------------------------------------------------------------------
 // Layers 1–4 — full sizing pipeline
 // ----------------------------------------------------------------------------
-export function sizePortfolio(ideas: Idea[], params: EngineParams = DEFAULT_PARAMS): SizeResult {
+export function sizePortfolio(
+  ideas: Idea[],
+  params: EngineParams = DEFAULT_PARAMS,
+  corr?: CorrelationSource,
+): SizeResult {
   const c = params.kelly_fraction;
   const cap = params.position_cap;
   const lambda = params.haircut_lambda;
@@ -180,6 +193,8 @@ export function sizePortfolio(ideas: Idea[], params: EngineParams = DEFAULT_PARA
       cash_reason: "diversification_limit",
       portfolio_conviction: 0,
       warnings: warnings.length ? warnings : ["No names with positive edge — fully in cash."],
+      corr_pairs_total: 0,
+      corr_pairs_live: 0,
     };
   }
 
@@ -188,11 +203,27 @@ export function sizePortfolio(ideas: Idea[], params: EngineParams = DEFAULT_PARA
   const totalF = portfolio_conviction || 1;
   const k = survivors.map((x) => x.f / totalF);
 
+  const rhoOf = (a: Idea, b: Idea): number => {
+    const live = corr?.get(a.ticker, b.ticker);
+    return live != null && Number.isFinite(live) ? live : sectorCorrelation(a, b);
+  };
+
+  // Provenance: count unordered survivor pairs priced by real history vs fallback.
+  let corrPairsTotal = 0;
+  let corrPairsLive = 0;
+  for (let i = 0; i < survivors.length; i++) {
+    for (let j = i + 1; j < survivors.length; j++) {
+      corrPairsTotal++;
+      const live = corr?.get(survivors[i].idea.ticker, survivors[j].idea.ticker);
+      if (live != null && Number.isFinite(live)) corrPairsLive++;
+    }
+  }
+
   const wL2 = survivors.map((x, i) => {
     let redundancy = 0;
     for (let j = 0; j < survivors.length; j++) {
       if (j === i) continue;
-      redundancy += correlation(x.idea, survivors[j].idea) * k[j];
+      redundancy += rhoOf(x.idea, survivors[j].idea) * k[j];
     }
     const haircutFactor = 1 / (1 + lambda * redundancy);
     return { w: Math.max(0, k[i] * haircutFactor), haircutFactor };
@@ -260,7 +291,16 @@ export function sizePortfolio(ideas: Idea[], params: EngineParams = DEFAULT_PARA
   });
 
   allocations.sort((p, q) => q.target_weight - p.target_weight);
-  return { allocations, excluded, cash, cash_reason, portfolio_conviction, warnings };
+  return {
+    allocations,
+    excluded,
+    cash,
+    cash_reason,
+    portfolio_conviction,
+    warnings,
+    corr_pairs_total: corrPairsTotal,
+    corr_pairs_live: corrPairsLive,
+  };
 }
 
 // ----------------------------------------------------------------------------
