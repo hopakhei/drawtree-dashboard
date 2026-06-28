@@ -861,7 +861,7 @@ const en = {
     subtitle:
       "Turn your stock ideas into optimal target weights — Kelly-sized, diversified by the Fundamental Law of Active Management, capped, and turned into a one-click broker rebalance.",
     loginNudge:
-      "The calculator is free for everyone. Log in to import calibrated conviction from your Draw Tree theses and to generate broker rebalance orders.",
+      "Open to everyone — size your portfolio and generate IBKR / Futu rebalance commands, no account needed.",
     loggedInAs: (handle: string) => `Signed in as ${handle}`,
 
     ideasTitle: "Your ideas",

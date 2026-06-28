@@ -806,7 +806,7 @@ const zh = {
     subtitle:
       "將你的股票想法轉化為最佳目標權重——以凱利公式定注、按主動管理基本定律分散、設上限，並一鍵生成券商再平衡指令。",
     loginNudge:
-      "計算機對所有人免費。登入後可從你的 Draw Tree 論點匯入校準後的信心水平，並生成券商再平衡指令。",
+      "人人可用——配置你的組合並生成 IBKR／Futu 再平衡指令，無需註冊。",
     loggedInAs: (handle: string) => `已登入：${handle}`,
 
     ideasTitle: "你的想法",

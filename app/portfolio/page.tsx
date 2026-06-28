@@ -283,12 +283,12 @@ export default function PortfolioPage() {
   const [positions, setPositions] = useState<Record<string, number>>({});
 
   const rebalance = useMemo(() => {
-    if (!showRebalance || !loggedIn) return null;
+    if (!showRebalance) return null;
     const pos = Object.entries(positions)
       .filter(([, sh]) => sh > 0)
       .map(([ticker, shares]) => ({ ticker, shares }));
     return generateRebalance(result.allocations, engineIdeas, pos, nlv, broker, params);
-  }, [showRebalance, loggedIn, positions, result.allocations, engineIdeas, nlv, broker, params]);
+  }, [showRebalance, positions, result.allocations, engineIdeas, nlv, broker, params]);
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-16">
@@ -524,21 +524,15 @@ export default function PortfolioPage() {
       {/* ---- Rebalance ---- */}
       <section className="border border-line rounded p-6 mb-8">
         <button
-          onClick={() => loggedIn && setShowRebalance((s) => !s)}
+          onClick={() => setShowRebalance((s) => !s)}
           className="flex items-baseline justify-between w-full text-left"
-          disabled={!loggedIn}
         >
           <h2 className="text-lg font-serif">{t.rebalanceTitle}</h2>
-          <span className="text-xs text-muted">
-            {!loggedIn ? "🔒" : showRebalance ? "▾" : "▸"}
-          </span>
+          <span className="text-xs text-muted">{showRebalance ? "▾" : "▸"}</span>
         </button>
 
-        {!loggedIn ? (
-          <p className="text-sm text-muted mt-3 font-serif">{t.rebalanceLocked}</p>
-        ) : (
-          showRebalance && (
-            <div className="mt-5">
+        {showRebalance && (
+          <div className="mt-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                 <label className="block">
                   <span className="text-xs uppercase tracking-wider text-muted">{t.broker}</span>
@@ -659,7 +653,6 @@ export default function PortfolioPage() {
                 </div>
               )}
             </div>
-          )
         )}
       </section>
     </main>
