@@ -1,12 +1,10 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
-import { cookies } from "next/headers";
 import { Newsreader } from "next/font/google";
 import { getLocale } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import LangSwitcher from "./_components/LangSwitcher";
-import ThemeToggle from "./_components/ThemeToggle";
 
 const newsreader = Newsreader({
   subsets: ["latin"],
@@ -29,19 +27,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = getLocale();
-  const themeCookie = cookies().get("dt_theme")?.value;
-  const theme = themeCookie === "terminal" ? "terminal" : "reasoning";
 
   return (
     <html
       lang={locale === "zh" ? "zh-Hant" : "en"}
-      data-theme={theme === "reasoning" ? "reasoning" : undefined}
+      data-theme="reasoning"
       className={newsreader.variable}
     >
       <body className="bg-paper text-ink antialiased font-mono">
         <LocaleProvider initialLocale={locale}>
           <LangSwitcher />
-          <ThemeToggle initial={theme} />
           {children}
         </LocaleProvider>
         <Analytics />
