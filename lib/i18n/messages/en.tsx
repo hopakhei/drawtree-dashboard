@@ -861,7 +861,7 @@ const en = {
     subtitle:
       "Turn your stock ideas into optimal target weights — Kelly-sized, diversified by the Fundamental Law of Active Management, capped, and turned into a one-click broker rebalance.",
     loginNudge:
-      "The calculator is free for everyone. Log in to import calibrated conviction from your Draw Tree theses and to generate broker rebalance orders.",
+      "Open to everyone — size your portfolio and generate IBKR / Futu rebalance commands, no account needed.",
     loggedInAs: (handle: string) => `Signed in as ${handle}`,
 
     ideasTitle: "Your ideas",
@@ -923,9 +923,14 @@ const en = {
     corrPairs: (live: number, total: number) => `${live}/${total} pairs from history`,
     corrObs: (n: number) => `${n} obs`,
     corrShrinkage: (d: string) => `Ledoit-Wolf δ=${d}`,
+    corrWindowDays: (d: number) => `${d}-day window`,
     corrMissing: (names: string) => `No trusted history for ${names} — sector prior used.`,
+    corrMatrixTitle: "Correlation matrix",
+    corrAdjustmentsTitle: "Cross-market adjustments",
+    corrPairLine: (a: string, b: string, sd: string, adj: string) =>
+      `${a} ↔ ${b}: same-day ${sd} → adjusted ${adj}`,
     corrNote:
-      "Correlations drive the Layer-2 diversification haircut. Names without trusted history fall back to a sector prior.",
+      "Correlations drive the Layer-2 diversification haircut. The figure used is the correlation of overlapping multi-day returns, which keeps cross-market dual listings (an ADR and its local share) from being understated by non-overlapping trading hours; the same-day figure is shown alongside. Names without trusted history fall back to a sector prior.",
 
     rebalanceTitle: "Rebalance preview",
     rebalanceLocked: "Log in to generate broker rebalance orders.",

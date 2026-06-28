@@ -208,22 +208,23 @@ export default function PortfolioPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // --- correlations from real price history (Layer 2) ----------------------
-  type CorrMeta = {
-    source: string;
+  type CorrData = {
+    tickers: string[];
+    rho: number[][]; // window-adjusted, used by the engine
+    sameDay: number[][]; // raw contemporaneous, for transparency
+    window: number;
     obs: number;
-    delta: number;
+    source: string;
     missing: string[];
     note?: string;
   };
-  const [corrSource, setCorrSource] = useState<CorrelationSource | null>(null);
-  const [corrMeta, setCorrMeta] = useState<CorrMeta | null>(null);
+  const [corrData, setCorrData] = useState<CorrData | null>(null);
   const [corrLoading, setCorrLoading] = useState(false);
 
   useEffect(() => {
     const tickers = tickerKey ? tickerKey.split(",") : [];
     if (tickers.length < 2) {
-      setCorrSource(null);
-      setCorrMeta(null);
+      setCorrData(null);
       setCorrLoading(false);
       return;
     }
@@ -238,29 +239,18 @@ export default function PortfolioPage() {
         });
         const j = await r.json();
         if (ignore) return;
-        if (j?.ok && Array.isArray(j.tickers) && j.tickers.length >= 2) {
-          setCorrSource(() => buildCorrelationSource(j.tickers, j.rho));
-          setCorrMeta({
-            source: j.source,
-            obs: j.obs,
-            delta: j.delta,
-            missing: j.missing || [],
-            note: j.note,
-          });
-        } else {
-          setCorrSource(null);
-          setCorrMeta({
-            source: "none",
-            obs: j?.obs || 0,
-            delta: 0,
-            missing: j?.missing || tickers,
-            note: j?.note,
-          });
-        }
+        setCorrData({
+          tickers: Array.isArray(j?.tickers) ? j.tickers : [],
+          rho: Array.isArray(j?.rho) ? j.rho : [],
+          sameDay: Array.isArray(j?.sameDay) ? j.sameDay : [],
+          window: j?.corrWindow || 0,
+          obs: j?.obs || 0,
+          source: j?.source || "none",
+          missing: Array.isArray(j?.missing) ? j.missing : tickers,
+          note: j?.note,
+        });
       } catch {
-        if (ignore) return;
-        setCorrSource(null);
-        setCorrMeta(null);
+        if (!ignore) setCorrData(null);
       } finally {
         if (!ignore) setCorrLoading(false);
       }
@@ -270,6 +260,14 @@ export default function PortfolioPage() {
       clearTimeout(timer);
     };
   }, [tickerKey]);
+
+  const corrSource = useMemo<CorrelationSource | null>(
+    () =>
+      corrData && corrData.tickers.length >= 2 && corrData.rho.length
+        ? buildCorrelationSource(corrData.tickers, corrData.rho)
+        : null,
+    [corrData],
+  );
 
   // --- engine (live) -------------------------------------------------------
   const result = useMemo(
@@ -285,12 +283,12 @@ export default function PortfolioPage() {
   const [positions, setPositions] = useState<Record<string, number>>({});
 
   const rebalance = useMemo(() => {
-    if (!showRebalance || !loggedIn) return null;
+    if (!showRebalance) return null;
     const pos = Object.entries(positions)
       .filter(([, sh]) => sh > 0)
       .map(([ticker, shares]) => ({ ticker, shares }));
     return generateRebalance(result.allocations, engineIdeas, pos, nlv, broker, params);
-  }, [showRebalance, loggedIn, positions, result.allocations, engineIdeas, nlv, broker, params]);
+  }, [showRebalance, positions, result.allocations, engineIdeas, nlv, broker, params]);
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-16">
@@ -412,7 +410,7 @@ export default function PortfolioPage() {
               <p className="text-xs text-muted mt-2 font-serif">{t.portfolioConvictionHint}</p>
             </div>
 
-            {/* Correlation provenance (Layer 2) */}
+            {/* Correlation provenance + matrix (Layer 2) */}
             <div className="mb-6 text-xs rounded border border-line bg-sunken px-3 py-2.5">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="uppercase tracking-wider text-muted">{t.corrTitle}</span>
@@ -427,23 +425,27 @@ export default function PortfolioPage() {
               {!corrLoading && (
                 <div className="mt-1 text-muted font-mono">
                   {t.corrPairs(result.corr_pairs_live, result.corr_pairs_total)}
-                  {result.corr_pairs_live > 0 && corrMeta ? (
+                  {result.corr_pairs_live > 0 && corrData ? (
                     <>
                       {" · "}
-                      {t.corrObs(corrMeta.obs)}
-                      {" · "}
-                      {t.corrShrinkage(corrMeta.delta.toFixed(2))}
-                      {corrMeta.source && corrMeta.source !== "none"
-                        ? ` · ${corrMeta.source}`
+                      {t.corrObs(corrData.obs)}
+                      {corrData.window ? ` · ${t.corrWindowDays(corrData.window)}` : ""}
+                      {corrData.source && corrData.source !== "none"
+                        ? ` · ${corrData.source}`
                         : ""}
                     </>
                   ) : null}
                 </div>
               )}
-              {!corrLoading && corrMeta?.missing?.length ? (
-                <div className="mt-1 text-muted">{t.corrMissing(corrMeta.missing.join(", "))}</div>
+              {!corrLoading && corrData?.missing?.length ? (
+                <div className="mt-1 text-muted">{t.corrMissing(corrData.missing.join(", "))}</div>
               ) : null}
-              <div className="mt-1 text-muted font-serif">{t.corrNote}</div>
+
+              {!corrLoading && corrData && corrData.tickers.length >= 2 && corrData.rho.length ? (
+                <CorrelationTable data={corrData} t={t} />
+              ) : null}
+
+              <div className="mt-2 text-muted font-serif">{t.corrNote}</div>
             </div>
 
             {/* Allocations */}
@@ -522,21 +524,15 @@ export default function PortfolioPage() {
       {/* ---- Rebalance ---- */}
       <section className="border border-line rounded p-6 mb-8">
         <button
-          onClick={() => loggedIn && setShowRebalance((s) => !s)}
+          onClick={() => setShowRebalance((s) => !s)}
           className="flex items-baseline justify-between w-full text-left"
-          disabled={!loggedIn}
         >
           <h2 className="text-lg font-serif">{t.rebalanceTitle}</h2>
-          <span className="text-xs text-muted">
-            {!loggedIn ? "🔒" : showRebalance ? "▾" : "▸"}
-          </span>
+          <span className="text-xs text-muted">{showRebalance ? "▾" : "▸"}</span>
         </button>
 
-        {!loggedIn ? (
-          <p className="text-sm text-muted mt-3 font-serif">{t.rebalanceLocked}</p>
-        ) : (
-          showRebalance && (
-            <div className="mt-5">
+        {showRebalance && (
+          <div className="mt-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                 <label className="block">
                   <span className="text-xs uppercase tracking-wider text-muted">{t.broker}</span>
@@ -657,7 +653,6 @@ export default function PortfolioPage() {
                 </div>
               )}
             </div>
-          )
         )}
       </section>
     </main>
@@ -946,6 +941,101 @@ function TickerSearch({
       )}
     </div>
   );
+}
+
+function CorrelationTable({
+  data,
+  t,
+}: {
+  data: { tickers: string[]; rho: number[][]; sameDay: number[][]; window: number };
+  t: any;
+}) {
+  const [open, setOpen] = useState(true);
+  const { tickers, rho, sameDay } = data;
+
+  // Pairs where the window adjustment materially changed the figure — this is
+  // the cross-market correction (e.g. an ADR vs its local ordinary line).
+  const adjustments: { a: string; b: string; sd: number; adj: number }[] = [];
+  for (let i = 0; i < tickers.length; i++) {
+    for (let j = i + 1; j < tickers.length; j++) {
+      const adj = rho[i]?.[j];
+      const sd = sameDay[i]?.[j];
+      if (typeof adj === "number" && typeof sd === "number" && Math.abs(adj - sd) > 0.1) {
+        adjustments.push({ a: tickers[i], b: tickers[j], sd, adj });
+      }
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      <button onClick={() => setOpen((o) => !o)} className="text-muted hover:text-ink">
+        {open ? "▾" : "▸"} {t.corrMatrixTitle}
+      </button>
+      {open && (
+        <div className="mt-2">
+          <div className="overflow-x-auto">
+            <table className="border-collapse font-mono text-[10px]">
+              <thead>
+                <tr>
+                  <th className="p-1" />
+                  {tickers.map((tk) => (
+                    <th
+                      key={tk}
+                      className="p-1 font-normal text-muted text-right whitespace-nowrap"
+                    >
+                      {tk}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tickers.map((ti, i) => (
+                  <tr key={ti}>
+                    <th className="p-1 font-normal text-muted text-right whitespace-nowrap">
+                      {ti}
+                    </th>
+                    {tickers.map((tj, j) => {
+                      const v = i === j ? 1 : rho[i]?.[j] ?? 0;
+                      return (
+                        <td
+                          key={tj}
+                          className="p-1 text-right tabular-nums text-ink"
+                          style={{ background: tint(v) }}
+                        >
+                          {v.toFixed(2)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {adjustments.length > 0 && (
+            <div className="mt-3">
+              <div className="uppercase tracking-wider text-muted mb-1">
+                {t.corrAdjustmentsTitle}
+              </div>
+              <div className="space-y-0.5 font-mono text-muted">
+                {adjustments.map((p, i) => (
+                  <div key={i}>
+                    {t.corrPairLine(p.a, p.b, p.sd.toFixed(2), p.adj.toFixed(2))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function tint(v: number): string {
+  if (v > 0) return `rgba(217,119,87,${Math.min(0.7, v * 0.65)})`; // clay → positive
+  if (v < 0) return `rgba(90,100,112,${Math.min(0.5, -v * 0.45)})`; // muted → negative
+  return "transparent";
 }
 
 function Field({

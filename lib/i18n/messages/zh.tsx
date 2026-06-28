@@ -806,7 +806,7 @@ const zh = {
     subtitle:
       "將你的股票想法轉化為最佳目標權重——以凱利公式定注、按主動管理基本定律分散、設上限，並一鍵生成券商再平衡指令。",
     loginNudge:
-      "計算機對所有人免費。登入後可從你的 Draw Tree 論點匯入校準後的信心水平，並生成券商再平衡指令。",
+      "人人可用——配置你的組合並生成 IBKR／Futu 再平衡指令，無需註冊。",
     loggedInAs: (handle: string) => `已登入：${handle}`,
 
     ideasTitle: "你的想法",
@@ -867,9 +867,14 @@ const zh = {
     corrPairs: (live: number, total: number) => `${live}/${total} 組來自歷史`,
     corrObs: (n: number) => `${n} 個觀測`,
     corrShrinkage: (d: string) => `Ledoit-Wolf δ=${d}`,
+    corrWindowDays: (d: number) => `${d} 日窗口`,
     corrMissing: (names: string) => `${names} 無可信歷史——改用行業先驗。`,
+    corrMatrixTitle: "相關性矩陣",
+    corrAdjustmentsTitle: "跨市場調整",
+    corrPairLine: (a: string, b: string, sd: string, adj: string) =>
+      `${a} ↔ ${b}：同日 ${sd} → 調整後 ${adj}`,
     corrNote:
-      "相關性驅動第 2 層的分散折讓。無可信歷史的標的回退至行業先驗。",
+      "相關性驅動第 2 層的分散折讓。所採用的數值為重疊多日回報的相關性，可避免跨市場雙重上市（ADR 與其本地股份）因交易時段不重疊而被低估；同日數值會並列顯示。無可信歷史的標的回退至行業先驗。",
 
     rebalanceTitle: "再平衡預覽",
     rebalanceLocked: "登入後可生成券商再平衡指令。",
