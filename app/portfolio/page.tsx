@@ -20,6 +20,9 @@ import {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "https://api.drawtree.capital";
 
+// TODO: confirm the exact Substack URL before shipping.
+const SUBSTACK_URL = "https://drawtree.substack.com";
+
 type EditableIdea = Idea & {
   name?: string;
   _import?: "idle" | "loading" | "ok" | "err";
@@ -78,22 +81,49 @@ export default function PortfolioPage() {
   const { m } = useI18n();
   const t = m.portfolio;
 
-  // --- auth (client-side, mirrors the rest of the dashboard) --------------
+  // --- gate: Draw Tree sign-in (enforced) + Substack subscribe (honor) -----
   const [handle, setHandle] = useState<string | null>(null);
-  const loggedIn = handle !== null;
+  const [authState, setAuthState] = useState<"checking" | "in" | "out">("checking");
+  const [substackOk, setSubstackOk] = useState(false);
+  const loggedIn = authState === "in";
+  const gateOpen = authState === "in" && substackOk;
+
   useEffect(() => {
     let key: string | null = null;
     try {
       key = sessionStorage.getItem("drawtree_api_key");
     } catch {}
-    if (!key) return;
+    if (!key) {
+      setAuthState("out");
+      return;
+    }
     fetch(`${API_BASE}/v1/account/me`, { headers: { Authorization: `Bearer ${key}` } })
       .then((r) => (r.ok ? r.json() : null))
       .then((me) => {
-        if (me?.handle) setHandle(me.handle);
+        if (me?.handle) {
+          setHandle(me.handle);
+          setAuthState("in");
+        } else {
+          setAuthState("out");
+        }
       })
-      .catch(() => {});
+      .catch(() => setAuthState("out"));
   }, []);
+
+  // Honor-system Substack confirmation, remembered per account.
+  useEffect(() => {
+    if (authState !== "in" || !handle) return;
+    try {
+      if (localStorage.getItem(`dt_substack_ok_${handle}`) === "1") setSubstackOk(true);
+    } catch {}
+  }, [authState, handle]);
+
+  function confirmSubstack() {
+    setSubstackOk(true);
+    try {
+      if (handle) localStorage.setItem(`dt_substack_ok_${handle}`, "1");
+    } catch {}
+  }
 
   // --- ideas ---------------------------------------------------------------
   const [ideas, setIdeas] = useState<EditableIdea[]>([
@@ -168,6 +198,7 @@ export default function PortfolioPage() {
   );
 
   useEffect(() => {
+    if (!gateOpen) return;
     const tickers = tickerKey ? tickerKey.split(",") : [];
     tickers.forEach((tk) => {
       if (requested.current.has(tk)) return;
@@ -185,7 +216,7 @@ export default function PortfolioPage() {
         })
         .catch(() => setQuoteState((s) => ({ ...s, [tk]: "err" })));
     });
-  }, [tickerKey]);
+  }, [tickerKey, gateOpen]);
 
   // Ideas as the engine sees them: live price overrides the stored fallback.
   const engineIdeas = useMemo<Idea[]>(
@@ -222,6 +253,11 @@ export default function PortfolioPage() {
   const [corrLoading, setCorrLoading] = useState(false);
 
   useEffect(() => {
+    if (!gateOpen) {
+      setCorrData(null);
+      setCorrLoading(false);
+      return;
+    }
     const tickers = tickerKey ? tickerKey.split(",") : [];
     if (tickers.length < 2) {
       setCorrData(null);
@@ -259,7 +295,7 @@ export default function PortfolioPage() {
       ignore = true;
       clearTimeout(timer);
     };
-  }, [tickerKey]);
+  }, [tickerKey, gateOpen]);
 
   const corrSource = useMemo<CorrelationSource | null>(
     () =>
@@ -301,14 +337,20 @@ export default function PortfolioPage() {
         <p className="text-muted mt-3 max-w-2xl text-sm leading-relaxed font-serif">
           {t.subtitle}
         </p>
-        <div
-          className={`mt-5 text-sm rounded px-4 py-3 border ${
-            loggedIn ? "text-pos bg-sunken border-line" : "text-muted bg-sunken border-line"
-          }`}
-        >
-          {loggedIn ? t.loggedInAs(handle!) : t.loginNudge}
-        </div>
       </header>
+
+      {!gateOpen ? (
+        <GateCard
+          authState={authState}
+          substackUrl={SUBSTACK_URL}
+          onConfirmSubstack={confirmSubstack}
+          t={t}
+        />
+      ) : (
+        <>
+          {handle && (
+            <div className="mb-6 text-xs text-muted">{t.loggedInAs(handle)}</div>
+          )}
 
       {/* ---- Ideas ---- */}
       <section className="border border-line rounded p-6 mb-8">
@@ -655,6 +697,8 @@ export default function PortfolioPage() {
             </div>
         )}
       </section>
+        </>
+      )}
     </main>
   );
 }
@@ -939,6 +983,75 @@ function TickerSearch({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function GateCard({
+  authState,
+  substackUrl,
+  onConfirmSubstack,
+  t,
+}: {
+  authState: "checking" | "in" | "out";
+  substackUrl: string;
+  onConfirmSubstack: () => void;
+  t: any;
+}) {
+  if (authState === "checking") {
+    return (
+      <div className="border border-line rounded p-8 text-sm text-muted font-serif">
+        {t.gateChecking}
+      </div>
+    );
+  }
+  if (authState === "out") {
+    return (
+      <div className="border border-line rounded p-8">
+        <h2 className="text-lg font-serif mb-2">{t.gateSignInTitle}</h2>
+        <p className="text-sm text-muted font-serif mb-5 max-w-prose leading-relaxed">
+          {t.gateSignInBody}
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="/account"
+            className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
+          >
+            {t.gateSignIn}
+          </a>
+          <a
+            href="/signup"
+            className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
+          >
+            {t.gateCreate}
+          </a>
+        </div>
+      </div>
+    );
+  }
+  // signed in, Substack not yet confirmed
+  return (
+    <div className="border border-line rounded p-8">
+      <h2 className="text-lg font-serif mb-2">{t.gateSubstackTitle}</h2>
+      <p className="text-sm text-muted font-serif mb-5 max-w-prose leading-relaxed">
+        {t.gateSubstackBody}
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <a
+          href={substackUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-4 py-2 text-sm bg-clay text-paper rounded hover:opacity-90"
+        >
+          {t.gateSubstackOpen}
+        </a>
+        <button
+          onClick={onConfirmSubstack}
+          className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
+        >
+          {t.gateSubstackConfirm}
+        </button>
+      </div>
     </div>
   );
 }

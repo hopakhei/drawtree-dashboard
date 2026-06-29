@@ -809,6 +809,18 @@ const zh = {
       "人人可用——配置你的組合並生成 IBKR／Futu 再平衡指令，無需註冊。",
     loggedInAs: (handle: string) => `已登入：${handle}`,
 
+    gateChecking: "正在檢查你的帳戶…",
+    gateSignInTitle: "登入以使用組合工具",
+    gateSignInBody:
+      "倉位配置與再平衡僅供 Draw Tree 會員使用。請登入或建立帳戶以繼續。",
+    gateSignIn: "登入",
+    gateCreate: "建立帳戶",
+    gateSubstackTitle: "還差一步",
+    gateSubstackBody:
+      "本工具開放給我們的 Substack 訂閱者。請先訂閱（誠信制），然後確認以繼續。",
+    gateSubstackOpen: "開啟我們的 Substack →",
+    gateSubstackConfirm: "我已訂閱——繼續",
+
     ideasTitle: "你的想法",
     ideasHint:
       "搜尋代號——現價會自動載入。填入你的牛市／熊市目標價與信心水平 p。兩情境邊際為負的標的會被標記並在配置前剔除。",

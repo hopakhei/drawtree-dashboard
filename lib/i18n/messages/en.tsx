@@ -864,6 +864,18 @@ const en = {
       "Open to everyone — size your portfolio and generate IBKR / Futu rebalance commands, no account needed.",
     loggedInAs: (handle: string) => `Signed in as ${handle}`,
 
+    gateChecking: "Checking your account…",
+    gateSignInTitle: "Sign in to use the portfolio tools",
+    gateSignInBody:
+      "Position sizing & rebalancing is for Draw Tree members. Sign in or create an account to continue.",
+    gateSignIn: "Sign in",
+    gateCreate: "Create account",
+    gateSubstackTitle: "One quick step",
+    gateSubstackBody:
+      "These tools are open to our Substack subscribers. Subscribe (it's on the honor system), then confirm to continue.",
+    gateSubstackOpen: "Open our Substack →",
+    gateSubstackConfirm: "I've subscribed — continue",
+
     ideasTitle: "Your ideas",
     ideasHint:
       "Search a ticker — its live price loads automatically. Add your bull / bear targets and conviction p. Names whose two-case edge is negative are flagged and dropped before sizing.",
