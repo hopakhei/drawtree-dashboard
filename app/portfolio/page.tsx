@@ -20,8 +20,8 @@ import {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "https://api.drawtree.capital";
 
-// TODO: confirm the exact Substack URL before shipping.
-const SUBSTACK_URL = "https://drawtree.substack.com";
+const SUBSTACK_URL = "https://90spminvesting.substack.com";
+const SUBSTACK_EMBED = "https://90spminvesting.substack.com/embed";
 
 type EditableIdea = Idea & {
   name?: string;
@@ -1036,21 +1036,30 @@ function GateCard({
       <p className="text-sm text-muted font-serif mb-5 max-w-prose leading-relaxed">
         {t.gateSubstackBody}
       </p>
+      <iframe
+        src={SUBSTACK_EMBED}
+        title="Subscribe"
+        width={480}
+        height={320}
+        scrolling="no"
+        frameBorder={0}
+        className="rounded border border-line bg-white max-w-full mb-5"
+      />
       <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={onConfirmSubstack}
+          className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
+        >
+          {t.gateSubstackConfirm}
+        </button>
         <a
           href={substackUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="px-4 py-2 text-sm bg-clay text-paper rounded hover:opacity-90"
+          className="text-xs text-muted underline-offset-4 hover:underline"
         >
           {t.gateSubstackOpen}
         </a>
-        <button
-          onClick={onConfirmSubstack}
-          className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
-        >
-          {t.gateSubstackConfirm}
-        </button>
       </div>
     </div>
   );
