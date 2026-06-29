@@ -83,6 +83,7 @@ export default function PortfolioPage() {
 
   // --- gate: Draw Tree sign-in (enforced) + Substack subscribe (honor) -----
   const [handle, setHandle] = useState<string | null>(null);
+  const [accountId, setAccountId] = useState<string | null>(null);
   const [authState, setAuthState] = useState<"checking" | "in" | "out">("checking");
   const [substackOk, setSubstackOk] = useState(false);
   const loggedIn = authState === "in";
@@ -97,11 +98,15 @@ export default function PortfolioPage() {
       setAuthState("out");
       return;
     }
+    // Signed in = /me returns 200 (mirrors how /account treats a valid token).
+    // Do NOT require a `handle` field — some accounts have none, and gating on
+    // it caused a gate ↔ account redirect loop.
     fetch(`${API_BASE}/v1/account/me`, { headers: { Authorization: `Bearer ${key}` } })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => (r.ok ? r.json().catch(() => ({})) : null))
       .then((me) => {
-        if (me?.handle) {
-          setHandle(me.handle);
+        if (me) {
+          setAccountId(String(me.agent_id || me.handle || me.email || "account"));
+          setHandle(me.handle || me.display_name || me.email || null);
           setAuthState("in");
         } else {
           setAuthState("out");
@@ -112,16 +117,16 @@ export default function PortfolioPage() {
 
   // Honor-system Substack confirmation, remembered per account.
   useEffect(() => {
-    if (authState !== "in" || !handle) return;
+    if (authState !== "in" || !accountId) return;
     try {
-      if (localStorage.getItem(`dt_substack_ok_${handle}`) === "1") setSubstackOk(true);
+      if (localStorage.getItem(`dt_substack_ok_${accountId}`) === "1") setSubstackOk(true);
     } catch {}
-  }, [authState, handle]);
+  }, [authState, accountId]);
 
   function confirmSubstack() {
     setSubstackOk(true);
     try {
-      if (handle) localStorage.setItem(`dt_substack_ok_${handle}`, "1");
+      if (accountId) localStorage.setItem(`dt_substack_ok_${accountId}`, "1");
     } catch {}
   }
 
@@ -1014,7 +1019,7 @@ function GateCard({
         </p>
         <div className="flex flex-wrap gap-3">
           <a
-            href="/account"
+            href="/account?next=https://drawtree.capital/portfolio"
             className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
           >
             {t.gateSignIn}
