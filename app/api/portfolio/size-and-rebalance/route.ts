@@ -29,7 +29,11 @@ import { yahooQuote } from "@/lib/portfolio/marketdata";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_IDEAS = 50;
+// Raised 50 -> 128 (2026-07-11): the stock-trees paper portfolio sends the
+// full research universe (~69 ideas); at 50 the tail of the alphabet was
+// silently truncated out of the portfolio. Truncation is now surfaced as a
+// warning instead of happening silently.
+const MAX_IDEAS = 128;
 
 export async function POST(req: NextRequest) {
   let body: any;
@@ -40,10 +44,12 @@ export async function POST(req: NextRequest) {
   }
 
   // --- parse ideas ---------------------------------------------------------
-  const rawIdeas: any[] = Array.isArray(body?.ideas) ? body.ideas.slice(0, MAX_IDEAS) : [];
+  const allIdeas: any[] = Array.isArray(body?.ideas) ? body.ideas : [];
+  const rawIdeas: any[] = allIdeas.slice(0, MAX_IDEAS);
   if (rawIdeas.length === 0) {
     return NextResponse.json({ ok: false, error: "ideas[] required" }, { status: 400 });
   }
+  const truncatedIdeas = allIdeas.length - rawIdeas.length;
   const ideas: Idea[] = rawIdeas.map((x, i) => ({
     id: String(x?.id ?? `idea-${i + 1}`),
     ticker: String(x?.ticker ?? "").trim().toUpperCase(),
@@ -66,6 +72,12 @@ export async function POST(req: NextRequest) {
   };
 
   const warnings: string[] = [];
+  if (truncatedIdeas > 0) {
+    warnings.push(
+      `ideas[] truncated: received ${allIdeas.length}, capped at ${MAX_IDEAS} — ` +
+        `${truncatedIdeas} idea(s) were NOT sized. Split the request or raise the cap.`,
+    );
+  }
 
   // --- optionally fill current prices from live quotes ---------------------
   const fetchPrices = body?.fetch_prices === true;
