@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getServerMessages } from "@/lib/i18n/server";
+import { SUBSTACK_URL } from "@/lib/links";
 
 export const revalidate = 60;
 
@@ -34,7 +35,7 @@ export default async function Home() {
             {m.home.toolBadge}
           </span>
           <h2 className="mt-4 text-2xl tracking-tight font-serif">
-            {m.portfolio.navLabel}
+            {m.portfolio.title}
           </h2>
           <p className="mt-1 text-base font-serif text-clay">{m.home.toolLede}</p>
           <p className="mt-3 text-sm text-muted leading-relaxed font-serif">
@@ -98,13 +99,21 @@ export default async function Home() {
         <div className="mt-6 text-xs text-muted">{m.home.privacyNote}</div>
       </section>
 
-      <footer className="mt-20 text-xs text-muted border-t border-line pt-6">
+      <footer className="mt-20 text-xs text-muted border-t border-line pt-6 flex flex-wrap gap-x-4 gap-y-2 justify-between">
         <p>
           {m.home.footer}
           <Link href="/spec" className="underline">
             {m.home.seeProtocol}
           </Link>
         </p>
+        <a
+          href={SUBSTACK_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-4 hover:underline hover:text-ink whitespace-nowrap"
+        >
+          {m.common.substack}
+        </a>
       </footer>
     </main>
   );

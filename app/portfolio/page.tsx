@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { useAuth } from "@/lib/useAuth";
+import { SUBSTACK_URL } from "@/lib/links";
 import {
   DEFAULT_PARAMS,
   generateRebalance,
@@ -676,6 +677,17 @@ export default function PortfolioPage() {
           </div>
         </section>
       )}
+
+      <footer className="mt-12 pt-6 border-t border-line text-xs text-muted">
+        <a
+          href={SUBSTACK_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-4 hover:underline hover:text-ink"
+        >
+          {m.common.substack}
+        </a>
+      </footer>
     </main>
   );
 }

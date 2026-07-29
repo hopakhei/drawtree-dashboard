@@ -27,6 +27,7 @@ const en = {
     edit: "Edit",
     saving: "Saving…",
     dateLocale: "en-CA",
+    substack: "Weekly notes on Substack →",
   },
 
   langSwitcher: {
@@ -48,10 +49,10 @@ const en = {
 
     // Door 1 — the thing anyone can use in the next thirty seconds.
     toolBadge: "No sign-in needed",
-    toolLede: "How much of each name should I hold?",
+    toolLede: "Picking the stock is the easy part.",
     toolBody:
-      "Enter your tickers with a bull and a bear target and how confident you are. Get Kelly-sized target weights — correlation-adjusted and capped — plus a ready-to-place IBKR / Futu rebalance. Live prices included.",
-    toolCta: "Open the sizer →",
+      "Type in the names you like, where you think they're going, and how sure you are. Out comes how much of each to buy, how much to leave in cash, and the orders to place at IBKR or Futu. Live prices load themselves.",
+    toolCta: "Work it out →",
 
     // Door 2 — the protocol, which is what an account is actually for.
     protocolBadge: "50 free credits on signup",
@@ -883,13 +884,13 @@ const en = {
   },
 
   portfolio: {
-    navLabel: "Position Sizer",
-    title: "Position Sizer",
-    lede: "How much of each name should I hold?",
+    navLabel: "How much to buy?",
+    title: "How much should I buy?",
+    lede: "You've picked the stocks. Now the hard part — the size of each bet.",
     subtitle:
-      "Enter your stock ideas with a bull and a bear target and how confident you are. Out comes a target weight per name — Kelly-sized, diversified by the Fundamental Law of Active Management, capped — and the broker orders to get there.",
+      "Type in the names you like, where you think each one is going in a good year and a bad one, and how sure you are. Out comes how much of each to buy, how much to leave in cash, and the orders to place at your broker. Under the hood: Kelly sizing, a correlation haircut, and a hard per-name cap.",
     openNote:
-      "Free and open — no account needed. The sizing runs in your browser; your numbers aren't saved to any account.",
+      "Free, no sign-up. The maths runs in your browser — the numbers you type aren't saved to any account.",
     loggedInAs: (handle: string) => `Signed in as ${handle}`,
 
     ideasTitle: "Your ideas",

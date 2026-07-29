@@ -26,6 +26,7 @@ const zh = {
     edit: "編輯",
     saving: "儲存中…",
     dateLocale: "zh-HK",
+    substack: "每週札記 · Substack →",
   },
 
   langSwitcher: {
@@ -46,16 +47,16 @@ const zh = {
       "每個投資論點都是一棵樹。每項主張都有證偽條件。每個判定都經簽署、加上時間戳，並可被質疑。為 AI 原生股票研究而設的傳輸協議。",
 
     // 第一道門 —— 任何人三十秒內用得到。
-    toolBadge: "毋須登入",
-    toolLede: "每隻股票應該買幾多？",
+    toolBadge: "唔使登入",
+    toolLede: "揀股容易，落幾多注先至難。",
     toolBody:
-      "輸入你的股票代號、bull / bear 目標價同信心水平，即刻計出每隻的目標倉位 —— 以 Kelly 定注、按相關性調整、設上限 —— 連同落單用的 IBKR / Futu 換倉指令。即時股價自動載入。",
-    toolCta: "開始計算 →",
+      "打入你睇中嘅股票、你覺得佢好嗰陣同衰嗰陣去到幾多、再講吓你有幾大信心。即刻計出每隻應該買幾多、留幾多現金，同埋去到 IBKR 或者富途照住落嘅單。即時股價自動載入。",
+    toolCta: "即刻計 →",
 
     // 第二道門 —— 協議，亦即開戶口真正的用途。
     protocolBadge: "註冊即送 50 credits",
     protocolTitle: "以 MCP 建立假設樹",
-    protocolLede: "把一個論點變成可以追究你的 AI 的東西。",
+    protocolLede: "將一個論點寫成證偽得到嘅樹，唔係吹完就算。",
     protocolBody:
       "將 Drawtree 的 MCP 伺服器接上 Perplexity、Claude Desktop 或任何 Remote-MCP 主機，一齊設計可證偽的樹：每項主張都有證偽條件，每個判定都經簽署、加上時間戳，並每週重新核對。",
     protocolCta: "免費註冊",
@@ -69,7 +70,7 @@ const zh = {
     myAccount: "我的帳戶",
     protocol: "協議 v0.3",
     health: "系統狀態",
-    whatYouGet: "開戶口之後多了甚麼",
+    whatYouGet: "開咗戶口仲有咩",
     bullets: [
       "一個 MCP 伺服器，與你常用的 AI 客戶端（Perplexity、Claude Desktop、任何 Remote-MCP 主機）共同設計可證偽的假設樹。",
       "164 套策略框架連同原典全文索引 — AI 以真實文獻為根據設計葉節點，而非泛泛提問。",
@@ -828,19 +829,19 @@ const zh = {
   },
 
   portfolio: {
-    navLabel: "倉位計算器",
-    title: "倉位計算器",
-    lede: "每隻股票應該買幾多？",
+    navLabel: "應該買幾多？",
+    title: "應該買幾多？",
+    lede: "股票你揀好咗。跟住每隻落幾多注，先至係最難嗰步。",
     subtitle:
-      "輸入你的股票想法、bull / bear 目標價同信心水平，即刻計出每隻的目標權重——以凱利公式定注、按主動管理基本定律分散、設上限——連同落單用的券商換倉指令。",
+      "打入你睇中嘅股票、你覺得佢好嗰陣同衰嗰陣去到幾多、再講吓你有幾大信心。即刻計出每隻應該買幾多、留幾多現金，同埋去到券商照住落嘅單。背後用緊：凱利定注、相關性折讓、每隻硬上限。",
     openNote:
-      "免費開放，毋須註冊。所有計算都在你的瀏覽器內進行；你輸入的數字不會存入任何帳戶。",
+      "免費，唔使註冊。條數喺你部機到行——你打嘅數字唔會存落任何帳戶。",
     loggedInAs: (handle: string) => `已登入：${handle}`,
 
 
     ideasTitle: "你的想法",
     ideasHint:
-      "搜尋代號——現價會自動載入。填入你的牛市／熊市目標價與信心水平 p。兩情境邊際為負的標的會被標記並在配置前剔除。",
+      "搵代號，現價會自動入。填你覺得佢升到幾多、跌到極又係幾多，再填你有幾大信心 p。兩邊都冇肉食嘅，會標記出嚟，計之前剔走。",
     addIdea: "＋ 新增想法",
     remove: "移除",
     ticker: "代號",
@@ -857,7 +858,7 @@ const zh = {
     importFailed: "找不到該代號已提交的樹。",
     importNeedsTicker: "請先輸入代號。",
     importSignInNudge:
-      "已經在 Drawtree 提交過樹？登入之後，每一行都會多一個匯入按鈕，直接把該棵樹校準後的信心水平同情境目標價拉過嚟。",
+      "喺 Drawtree 提交過樹？登入之後，每一行都會多一個匯入掣，直接攞返嗰棵樹校準過嘅信心水平同目標價。",
     importSignInCta: "登入",
 
     searchPlaceholder: "搜尋代號或公司…",
@@ -866,7 +867,7 @@ const zh = {
     quoteFetching: "讀取價格中…",
     quoteFailed: "價格無法取得",
     priceLive: "實時",
-    infoEmpty: "選擇代號以載入實時價格及資料。",
+    infoEmpty: "揀個代號，即時價同資料會自動入。",
 
     advanced: "進階參數",
     kellyFraction: "凱利分數（c）",
@@ -874,17 +875,17 @@ const zh = {
     haircutLambda: "折讓 λ",
     noTradeThreshold: "免交易門檻",
     paramsHint:
-      "四分之一凱利（0.25）為預設安全邊際——絕不使用全凱利。上限為單一標的硬性天花板。λ 調節對相關標的折讓的力度。",
+      "預設四分一凱利（0.25），係安全邊際——千祈唔好用足全凱利。上限係單一隻股嘅硬天花。λ controls 相關嘅股票要斬幾深。",
 
     resultsTitle: "目標組合",
-    emptyResults: "至少新增一個想法：牛市目標價高於現價、熊市目標價低於現價。",
+    emptyResults: "起碼加一隻：牛市目標價要高過現價，熊市目標價要低過現價。",
     targetWeight: "目標",
     rawKelly: "原始凱利",
     cash: "現金",
     cashDiversification: "現金（分散限制）",
     portfolioConviction: "組合信心",
     portfolioConvictionHint:
-      "正規化前的原始凱利分數總和。偏低＝想法薄弱；出現現金回退＝想法太少。",
+      "正規化之前嘅原始凱利分數總和。低＝啲想法唔夠硬；跌返去現金＝想法太少。",
     flagDoNotBuy: "不要買入",
     flagCapped: "已封頂",
     flagHaircut: "已折讓",
@@ -912,7 +913,7 @@ const zh = {
     nlv: "淨清算價值",
     currentShares: "目前持股",
     sharesPlaceholder: "股數",
-    noPositions: "全新帳戶可留空——每個目標權重都會變成買入。",
+    noPositions: "全新戶口就留空——每個目標倉位都會變成買入。",
     orders: "指令",
     side: "方向",
     qty: "數量",
@@ -925,11 +926,11 @@ const zh = {
     executeDisabled: "執行——連接券商",
     executeNote:
       "僅供預覽。實際執行透過 IBKR／Futu MCP，預設為模擬盤優先，並須經明確的「先預覽後確認」步驟——本版本尚未啟用。",
-    persistenceNote: "將組合儲存至你的帳戶——即將推出。",
+    persistenceNote: "儲組合入戶口——就快有。",
     saveNudgeTitle: "想留低呢個組合？",
     saveNudgeBody:
-      "呢個組合只存在於這個瀏覽器分頁，關掉就會消失。免費帳戶就是日後儲存組合、放置你已提交的假設樹、以及接收每週判定監測的地方。",
-    saveNudgeCta: "建立免費帳戶",
+      "呢個組合淨係喺呢個分頁度，閂咗就冇。開個免費戶口，日後就可以儲返組合、放你提交過嘅樹、收每週嘅判定通知。",
+    saveNudgeCta: "開個免費戶口",
     saveNudgeSignIn: "或者登入",
     sourceManual: "手動",
     sourceMcp: "Draw Tree",
