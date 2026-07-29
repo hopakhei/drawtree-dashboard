@@ -3,8 +3,9 @@
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import type { Locale } from "@/lib/i18n";
 
-// Fixed EN/中文 toggle, rendered from the root layout so it appears on
-// every page without each page needing its own header.
+// EN/中文 toggle. Rendered inline inside SiteNav — it used to be a fixed
+// overlay in the top-right corner, which floated over page content and
+// competed with the (previously missing) sign-in entry point.
 export default function LangSwitcher() {
   const { locale, m, setLocale } = useI18n();
   const options: { value: Locale; label: string }[] = [
@@ -13,7 +14,7 @@ export default function LangSwitcher() {
   ];
   return (
     <div
-      className="fixed top-3 right-3 z-50 flex items-center border border-line rounded bg-paper/90 backdrop-blur-sm text-xs overflow-hidden"
+      className="flex items-center border border-line rounded bg-paper/90 text-xs overflow-hidden shrink-0"
       role="group"
       aria-label={m.langSwitcher.label}
     >
@@ -22,7 +23,7 @@ export default function LangSwitcher() {
           key={o.value}
           onClick={() => setLocale(o.value)}
           aria-pressed={locale === o.value}
-          className={`px-2.5 py-1.5 transition ${
+          className={`px-2 py-1.5 transition ${
             locale === o.value
               ? "bg-ink text-paper"
               : "text-muted hover:bg-line/40"

@@ -34,15 +34,42 @@ const zh = {
     zh: "中文",
   },
 
+  nav: {
+    signIn: "登入",
+    signUp: "免費註冊",
+    setup: "設定指南",
+    protocol: "協議",
+  },
+
   home: {
     tagline:
       "每個投資論點都是一棵樹。每項主張都有證偽條件。每個判定都經簽署、加上時間戳，並可被質疑。為 AI 原生股票研究而設的傳輸協議。",
+
+    // 第一道門 —— 任何人三十秒內用得到。
+    toolBadge: "毋須登入",
+    toolLede: "每隻股票應該買幾多？",
+    toolBody:
+      "輸入你的股票代號、bull / bear 目標價同信心水平，即刻計出每隻的目標倉位 —— 以 Kelly 定注、按相關性調整、設上限 —— 連同落單用的 IBKR / Futu 換倉指令。即時股價自動載入。",
+    toolCta: "開始計算 →",
+
+    // 第二道門 —— 協議，亦即開戶口真正的用途。
+    protocolBadge: "註冊即送 50 credits",
+    protocolTitle: "以 MCP 建立假設樹",
+    protocolLede: "把一個論點變成可以追究你的 AI 的東西。",
+    protocolBody:
+      "將 Drawtree 的 MCP 伺服器接上 Perplexity、Claude Desktop 或任何 Remote-MCP 主機，一齊設計可證偽的樹：每項主張都有證偽條件，每個判定都經簽署、加上時間戳，並每週重新核對。",
+    protocolCta: "免費註冊",
+    protocolCtaSecondary: "設定指南 →",
+
+    haveAccount: "已經有帳戶？",
+    signIn: "登入",
+
     signUpFree: "免費註冊",
     setupGuide: "設定指南 →",
     myAccount: "我的帳戶",
     protocol: "協議 v0.3",
     health: "系統狀態",
-    whatYouGet: "你會得到甚麼",
+    whatYouGet: "開戶口之後多了甚麼",
     bullets: [
       "一個 MCP 伺服器，與你常用的 AI 客戶端（Perplexity、Claude Desktop、任何 Remote-MCP 主機）共同設計可證偽的假設樹。",
       "164 套策略框架連同原典全文索引 — AI 以真實文獻為根據設計葉節點，而非泛泛提問。",
@@ -801,25 +828,15 @@ const zh = {
   },
 
   portfolio: {
-    navLabel: "倉位配置",
-    title: "倉位配置與再平衡",
+    navLabel: "倉位計算器",
+    title: "倉位計算器",
+    lede: "每隻股票應該買幾多？",
     subtitle:
-      "將你的股票想法轉化為最佳目標權重——以凱利公式定注、按主動管理基本定律分散、設上限，並一鍵生成券商再平衡指令。",
-    loginNudge:
-      "人人可用——配置你的組合並生成 IBKR／Futu 再平衡指令，無需註冊。",
+      "輸入你的股票想法、bull / bear 目標價同信心水平，即刻計出每隻的目標權重——以凱利公式定注、按主動管理基本定律分散、設上限——連同落單用的券商換倉指令。",
+    openNote:
+      "免費開放，毋須註冊。所有計算都在你的瀏覽器內進行；你輸入的數字不會存入任何帳戶。",
     loggedInAs: (handle: string) => `已登入：${handle}`,
 
-    gateChecking: "正在檢查你的帳戶…",
-    gateSignInTitle: "登入以使用組合工具",
-    gateSignInBody:
-      "倉位配置與再平衡僅供 Draw Tree 會員使用。請登入或建立帳戶以繼續。",
-    gateSignIn: "登入",
-    gateCreate: "建立帳戶",
-    gateSubstackTitle: "還差一步",
-    gateSubstackBody:
-      "本工具開放給我們的 Substack 訂閱者。請先訂閱（誠信制），然後確認以繼續。",
-    gateSubstackOpen: "開啟我們的 Substack →",
-    gateSubstackConfirm: "我已訂閱——繼續",
 
     ideasTitle: "你的想法",
     ideasHint:
@@ -839,7 +856,9 @@ const zh = {
     importedFrom: (h: string) => `已自 ${h} 匯入`,
     importFailed: "找不到該代號已提交的樹。",
     importNeedsTicker: "請先輸入代號。",
-    importLoginRequired: "登入後可匯入校準後的信心水平。",
+    importSignInNudge:
+      "已經在 Drawtree 提交過樹？登入之後，每一行都會多一個匯入按鈕，直接把該棵樹校準後的信心水平同情境目標價拉過嚟。",
+    importSignInCta: "登入",
 
     searchPlaceholder: "搜尋代號或公司…",
     searching: "搜尋中…",
@@ -889,7 +908,6 @@ const zh = {
       "相關性驅動第 2 層的分散折讓。所採用的數值為重疊多日回報的相關性，可避免跨市場雙重上市（ADR 與其本地股份）因交易時段不重疊而被低估；同日數值會並列顯示。無可信歷史的標的回退至行業先驗。",
 
     rebalanceTitle: "再平衡預覽",
-    rebalanceLocked: "登入後可生成券商再平衡指令。",
     broker: "券商",
     nlv: "淨清算價值",
     currentShares: "目前持股",
@@ -908,6 +926,11 @@ const zh = {
     executeNote:
       "僅供預覽。實際執行透過 IBKR／Futu MCP，預設為模擬盤優先，並須經明確的「先預覽後確認」步驟——本版本尚未啟用。",
     persistenceNote: "將組合儲存至你的帳戶——即將推出。",
+    saveNudgeTitle: "想留低呢個組合？",
+    saveNudgeBody:
+      "呢個組合只存在於這個瀏覽器分頁，關掉就會消失。免費帳戶就是日後儲存組合、放置你已提交的假設樹、以及接收每週判定監測的地方。",
+    saveNudgeCta: "建立免費帳戶",
+    saveNudgeSignIn: "或者登入",
     sourceManual: "手動",
     sourceMcp: "Draw Tree",
   },

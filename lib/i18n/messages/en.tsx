@@ -35,15 +35,42 @@ const en = {
     zh: "中文",
   },
 
+  nav: {
+    signIn: "Sign in",
+    signUp: "Sign up free",
+    setup: "Setup guide",
+    protocol: "Protocol",
+  },
+
   home: {
     tagline:
       "Every investment thesis as a tree. Every claim has a kill condition. Every verdict is signed, timestamped, and disputable. The wire protocol for AI-native equity research.",
+
+    // Door 1 — the thing anyone can use in the next thirty seconds.
+    toolBadge: "No sign-in needed",
+    toolLede: "How much of each name should I hold?",
+    toolBody:
+      "Enter your tickers with a bull and a bear target and how confident you are. Get Kelly-sized target weights — correlation-adjusted and capped — plus a ready-to-place IBKR / Futu rebalance. Live prices included.",
+    toolCta: "Open the sizer →",
+
+    // Door 2 — the protocol, which is what an account is actually for.
+    protocolBadge: "50 free credits on signup",
+    protocolTitle: "Hypothesis trees over MCP",
+    protocolLede: "Turn a thesis into something your AI can be held to.",
+    protocolBody:
+      "Point Drawtree's MCP server at Perplexity, Claude Desktop or any Remote-MCP host and co-design a falsifiable tree: every claim gets a kill condition, every verdict is signed, timestamped, and re-checked weekly.",
+    protocolCta: "Sign up free",
+    protocolCtaSecondary: "Setup guide →",
+
+    haveAccount: "Already have an account?",
+    signIn: "Sign in",
+
     signUpFree: "Sign up free",
     setupGuide: "Setup guide →",
     myAccount: "My account",
     protocol: "Protocol v0.3",
     health: "Health",
-    whatYouGet: "What you get",
+    whatYouGet: "What an account adds",
     bullets: [
       "An MCP server that co-designs falsifiable hypothesis trees with your favourite AI client (Perplexity, Claude Desktop, any Remote-MCP host).",
       "164 strategy frameworks indexed with canonical full-text — the AI grounds its leaf design in real source material, not generic questions.",
@@ -856,25 +883,14 @@ const en = {
   },
 
   portfolio: {
-    navLabel: "Position sizing",
-    title: "Position sizing & rebalancing",
+    navLabel: "Position Sizer",
+    title: "Position Sizer",
+    lede: "How much of each name should I hold?",
     subtitle:
-      "Turn your stock ideas into optimal target weights — Kelly-sized, diversified by the Fundamental Law of Active Management, capped, and turned into a one-click broker rebalance.",
-    loginNudge:
-      "Open to everyone — size your portfolio and generate IBKR / Futu rebalance commands, no account needed.",
+      "Enter your stock ideas with a bull and a bear target and how confident you are. Out comes a target weight per name — Kelly-sized, diversified by the Fundamental Law of Active Management, capped — and the broker orders to get there.",
+    openNote:
+      "Free and open — no account needed. The sizing runs in your browser; your numbers aren't saved to any account.",
     loggedInAs: (handle: string) => `Signed in as ${handle}`,
-
-    gateChecking: "Checking your account…",
-    gateSignInTitle: "Sign in to use the portfolio tools",
-    gateSignInBody:
-      "Position sizing & rebalancing is for Draw Tree members. Sign in or create an account to continue.",
-    gateSignIn: "Sign in",
-    gateCreate: "Create account",
-    gateSubstackTitle: "One quick step",
-    gateSubstackBody:
-      "These tools are open to our Substack subscribers. Subscribe (it's on the honor system), then confirm to continue.",
-    gateSubstackOpen: "Open our Substack →",
-    gateSubstackConfirm: "I've subscribed — continue",
 
     ideasTitle: "Your ideas",
     ideasHint:
@@ -894,7 +910,9 @@ const en = {
     importedFrom: (h: string) => `Imported from ${h}`,
     importFailed: "No committed tree found for that ticker.",
     importNeedsTicker: "Enter a ticker first.",
-    importLoginRequired: "Log in to import calibrated conviction.",
+    importSignInNudge:
+      "Committed a tree on Drawtree already? Sign in and each row gets an import button that pulls the calibrated conviction and scenario targets straight from it.",
+    importSignInCta: "Sign in",
 
     searchPlaceholder: "Search ticker or company…",
     searching: "Searching…",
@@ -945,7 +963,6 @@ const en = {
       "Correlations drive the Layer-2 diversification haircut. The figure used is the correlation of overlapping multi-day returns, which keeps cross-market dual listings (an ADR and its local share) from being understated by non-overlapping trading hours; the same-day figure is shown alongside. Names without trusted history fall back to a sector prior.",
 
     rebalanceTitle: "Rebalance preview",
-    rebalanceLocked: "Log in to generate broker rebalance orders.",
     broker: "Broker",
     nlv: "Net liquidation value",
     currentShares: "Current shares held",
@@ -964,6 +981,11 @@ const en = {
     executeNote:
       "Preview only. Live execution runs through the IBKR / Futu MCP with a paper-first default and an explicit preview-then-confirm step — not enabled in this build.",
     persistenceNote: "Saving portfolios to your account is coming soon.",
+    saveNudgeTitle: "Want to keep this?",
+    saveNudgeBody:
+      "This portfolio lives in this browser tab only — close it and it's gone. A free account is where saved portfolios, your committed hypothesis trees, and weekly verdict monitoring will live.",
+    saveNudgeCta: "Create a free account",
+    saveNudgeSignIn: "or sign in",
     sourceManual: "manual",
     sourceMcp: "Draw Tree",
   },
