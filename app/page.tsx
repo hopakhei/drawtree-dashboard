@@ -65,19 +65,24 @@ export default async function Home() {
           <p className="mt-3 text-sm text-muted leading-relaxed font-serif">
             {m.home.protocolBody}
           </p>
-          <div className="mt-auto pt-6 flex flex-wrap items-center gap-3">
-            <Link
-              href="/signup"
-              className="inline-block px-4 py-2.5 text-sm border border-ink rounded hover:bg-ink/10"
-            >
-              {m.home.protocolCta}
-            </Link>
-            <Link
-              href="/start"
-              className="text-sm text-muted underline-offset-4 hover:underline hover:text-ink"
-            >
-              {m.home.protocolCtaSecondary}
-            </Link>
+          <div className="mt-auto pt-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/signup"
+                className="inline-block px-4 py-2.5 text-sm border border-ink rounded hover:bg-ink/10"
+              >
+                {m.home.protocolCta}
+              </Link>
+              <Link
+                href="/start"
+                className="text-sm text-muted underline-offset-4 hover:underline hover:text-ink"
+              >
+                {m.home.protocolCtaSecondary}
+              </Link>
+            </div>
+            {/* The card leads with the question, so name the plumbing here —
+                readers who came for "does it work with my client?" still find it. */}
+            <p className="mt-4 text-xs text-muted">{m.home.protocolClients}</p>
           </div>
         </section>
       </div>

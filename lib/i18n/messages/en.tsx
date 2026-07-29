@@ -54,12 +54,14 @@ const en = {
       "Type in the names you like, where you think they're going, and how sure you are. Out comes how much of each to buy, how much to leave in cash, and the orders to place at IBKR or Futu. Live prices load themselves.",
     toolCta: "Work it out →",
 
-    // Door 2 — the protocol, which is what an account is actually for.
+    // Door 2 — the same job, after you've bought. Led by the question a
+    // holder actually asks, not by the machinery that answers it.
     protocolBadge: "50 free credits on signup",
-    protocolTitle: "Hypothesis trees over MCP",
-    protocolLede: "Turn a thesis into something your AI can be held to.",
+    protocolTitle: "How will you know you're wrong?",
+    protocolLede: "The day you bought, you had a reason. Is it still true?",
     protocolBody:
-      "Point Drawtree's MCP server at Perplexity, Claude Desktop or any Remote-MCP host and co-design a falsifiable tree: every claim gets a kill condition, every verdict is signed, timestamped, and re-checked weekly.",
+      "Work with the AI you already use to break that reason into a tree — where every claim has to name what would prove it wrong. Can't name it, can't commit it. From then on it's re-checked weekly against fresh evidence, and you hear about it the week a verdict turns. Not when you're down 30%.",
+    protocolClients: "Works with Perplexity, Claude Desktop, any Remote-MCP client.",
     protocolCta: "Sign up free",
     protocolCtaSecondary: "Setup guide →",
 
@@ -71,12 +73,14 @@ const en = {
     myAccount: "My account",
     protocol: "Protocol v0.3",
     health: "Health",
-    whatYouGet: "What an account adds",
+    whatYouGet: "How is this different from just asking an AI?",
     bullets: [
-      "An MCP server that co-designs falsifiable hypothesis trees with your favourite AI client (Perplexity, Claude Desktop, any Remote-MCP host).",
-      "164 strategy frameworks indexed with canonical full-text — the AI grounds its leaf design in real source material, not generic questions.",
-      "Live peer-price data fetch, three-scenario peer valuation, weekly cron monitoring with verdict alerts.",
-      "50 free credits on signup — enough to publish your first tree end-to-end. No credit-card prompt. Trees you commit stay private to you.",
+      "Ask an AI about a stock and you get an essay you can't check. Here every claim must carry an observable kill condition — a number, a date, a disclosure. The validator rejects the tree if one is missing, so you cannot publish an unfalsifiable claim.",
+      "The verdict is computed from the leaves, not asserted in a closing paragraph. You can see which specific claim moved it, and which one is worth watching hardest.",
+      "A chat ends when you close the tab. A committed tree is re-checked weekly against fresh prices and new evidence, and tells you the week something breaks.",
+      "Leaf questions are grounded in 164 strategy frameworks with canonical full-text — the AI picks the framework that fits your case and asks from the literature, instead of asking generically.",
+      "Trees are content-addressed and append-only, so when you change your mind the old version is still there. Your past self stays on the record.",
+      "50 free credits on signup — enough to publish your first tree end-to-end. No credit-card prompt. Committed trees stay private to you.",
     ],
     privacyNote:
       "All committed trees are private by default. There is no public directory of users or trees.",
