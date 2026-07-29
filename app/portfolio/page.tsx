@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { useAuth } from "@/lib/useAuth";
+import { SUBSTACK_URL } from "@/lib/links";
 import {
   DEFAULT_PARAMS,
   generateRebalance,
@@ -19,9 +21,6 @@ import {
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "https://api.drawtree.capital";
-
-const SUBSTACK_URL = "https://90spminvesting.substack.com";
-const SUBSTACK_EMBED = "https://90spminvesting.substack.com/embed";
 
 type EditableIdea = Idea & {
   name?: string;
@@ -81,54 +80,11 @@ export default function PortfolioPage() {
   const { m } = useI18n();
   const t = m.portfolio;
 
-  // --- gate: Draw Tree sign-in (enforced) + Substack subscribe (honor) -----
-  const [handle, setHandle] = useState<string | null>(null);
-  const [accountId, setAccountId] = useState<string | null>(null);
-  const [authState, setAuthState] = useState<"checking" | "in" | "out">("checking");
-  const [substackOk, setSubstackOk] = useState(false);
-  const loggedIn = authState === "in";
-  const gateOpen = authState === "in" && substackOk;
-
-  useEffect(() => {
-    let key: string | null = null;
-    try {
-      key = sessionStorage.getItem("drawtree_api_key");
-    } catch {}
-    if (!key) {
-      setAuthState("out");
-      return;
-    }
-    // Signed in = /me returns 200 (mirrors how /account treats a valid token).
-    // Do NOT require a `handle` field — some accounts have none, and gating on
-    // it caused a gate ↔ account redirect loop.
-    fetch(`${API_BASE}/v1/account/me`, { headers: { Authorization: `Bearer ${key}` } })
-      .then((r) => (r.ok ? r.json().catch(() => ({})) : null))
-      .then((me) => {
-        if (me) {
-          setAccountId(String(me.agent_id || me.handle || me.email || "account"));
-          setHandle(me.handle || me.display_name || me.email || null);
-          setAuthState("in");
-        } else {
-          setAuthState("out");
-        }
-      })
-      .catch(() => setAuthState("out"));
-  }, []);
-
-  // Honor-system Substack confirmation, remembered per account.
-  useEffect(() => {
-    if (authState !== "in" || !accountId) return;
-    try {
-      if (localStorage.getItem(`dt_substack_ok_${accountId}`) === "1") setSubstackOk(true);
-    } catch {}
-  }, [authState, accountId]);
-
-  function confirmSubstack() {
-    setSubstackOk(true);
-    try {
-      if (accountId) localStorage.setItem(`dt_substack_ok_${accountId}`, "1");
-    } catch {}
-  }
+  // The sizer is open to everyone: no sign-in, no subscription, no gate.
+  // Auth is read purely to decide which *optional* extras to offer —
+  // importing conviction from your own committed trees, and the nudge to
+  // create an account if you want to keep the portfolio.
+  const { loggedIn, handle } = useAuth();
 
   // --- ideas ---------------------------------------------------------------
   const [ideas, setIdeas] = useState<EditableIdea[]>([
@@ -203,7 +159,6 @@ export default function PortfolioPage() {
   );
 
   useEffect(() => {
-    if (!gateOpen) return;
     const tickers = tickerKey ? tickerKey.split(",") : [];
     tickers.forEach((tk) => {
       if (requested.current.has(tk)) return;
@@ -221,7 +176,7 @@ export default function PortfolioPage() {
         })
         .catch(() => setQuoteState((s) => ({ ...s, [tk]: "err" })));
     });
-  }, [tickerKey, gateOpen]);
+  }, [tickerKey]);
 
   // Ideas as the engine sees them: live price overrides the stored fallback.
   const engineIdeas = useMemo<Idea[]>(
@@ -258,11 +213,6 @@ export default function PortfolioPage() {
   const [corrLoading, setCorrLoading] = useState(false);
 
   useEffect(() => {
-    if (!gateOpen) {
-      setCorrData(null);
-      setCorrLoading(false);
-      return;
-    }
     const tickers = tickerKey ? tickerKey.split(",") : [];
     if (tickers.length < 2) {
       setCorrData(null);
@@ -300,7 +250,7 @@ export default function PortfolioPage() {
       ignore = true;
       clearTimeout(timer);
     };
-  }, [tickerKey, gateOpen]);
+  }, [tickerKey]);
 
   const corrSource = useMemo<CorrelationSource | null>(
     () =>
@@ -333,29 +283,16 @@ export default function PortfolioPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-16">
-      <Link href="/" className="text-xs text-muted underline-offset-4 hover:underline">
-        {m.common.backToHome}
-      </Link>
-
-      <header className="mt-4 mb-10">
+      <header className="mb-10">
         <h1 className="text-3xl tracking-tight font-serif">{t.title}</h1>
+        <p className="mt-2 text-xl font-serif text-clay">{t.lede}</p>
         <p className="text-muted mt-3 max-w-2xl text-sm leading-relaxed font-serif">
           {t.subtitle}
         </p>
+        <p className="mt-4 text-xs text-muted max-w-2xl leading-relaxed">
+          {loggedIn && handle ? t.loggedInAs(handle) : t.openNote}
+        </p>
       </header>
-
-      {!gateOpen ? (
-        <GateCard
-          authState={authState}
-          substackUrl={SUBSTACK_URL}
-          onConfirmSubstack={confirmSubstack}
-          t={t}
-        />
-      ) : (
-        <>
-          {handle && (
-            <div className="mb-6 text-xs text-muted">{t.loggedInAs(handle)}</div>
-          )}
 
       {/* ---- Ideas ---- */}
       <section className="border border-line rounded p-6 mb-8">
@@ -387,6 +324,20 @@ export default function PortfolioPage() {
             />
           ))}
         </div>
+
+        {/* Signed-out extra: importing conviction needs an account, so it's
+            offered here as an upgrade rather than enforced as a gate. */}
+        {!loggedIn && (
+          <p className="mt-5 text-xs text-muted leading-relaxed font-serif">
+            {t.importSignInNudge}{" "}
+            <Link
+              href="/account"
+              className="underline underline-offset-4 hover:text-ink"
+            >
+              {t.importSignInCta}
+            </Link>
+          </p>
+        )}
 
         {/* Advanced params */}
         <div className="mt-6 border-t border-line pt-4">
@@ -702,8 +653,41 @@ export default function PortfolioPage() {
             </div>
         )}
       </section>
-        </>
+
+      {/* The ask comes last — after the tool has already done its work. */}
+      {!loggedIn && (
+        <section className="border border-line rounded p-6 mb-8 bg-sunken">
+          <h2 className="text-lg font-serif">{t.saveNudgeTitle}</h2>
+          <p className="mt-2 text-sm text-muted leading-relaxed font-serif max-w-2xl">
+            {t.saveNudgeBody}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link
+              href="/signup"
+              className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
+            >
+              {t.saveNudgeCta}
+            </Link>
+            <Link
+              href="/account"
+              className="text-sm text-muted underline-offset-4 hover:underline hover:text-ink"
+            >
+              {t.saveNudgeSignIn}
+            </Link>
+          </div>
+        </section>
       )}
+
+      <footer className="mt-12 pt-6 border-t border-line text-xs text-muted">
+        <a
+          href={SUBSTACK_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-4 hover:underline hover:text-ink"
+        >
+          {m.common.substack}
+        </a>
+      </footer>
     </main>
   );
 }
@@ -988,84 +972,6 @@ function TickerSearch({
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function GateCard({
-  authState,
-  substackUrl,
-  onConfirmSubstack,
-  t,
-}: {
-  authState: "checking" | "in" | "out";
-  substackUrl: string;
-  onConfirmSubstack: () => void;
-  t: any;
-}) {
-  if (authState === "checking") {
-    return (
-      <div className="border border-line rounded p-8 text-sm text-muted font-serif">
-        {t.gateChecking}
-      </div>
-    );
-  }
-  if (authState === "out") {
-    return (
-      <div className="border border-line rounded p-8">
-        <h2 className="text-lg font-serif mb-2">{t.gateSignInTitle}</h2>
-        <p className="text-sm text-muted font-serif mb-5 max-w-prose leading-relaxed">
-          {t.gateSignInBody}
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <a
-            href="/account?next=https://drawtree.capital/portfolio"
-            className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
-          >
-            {t.gateSignIn}
-          </a>
-          <a
-            href="/signup"
-            className="px-4 py-2 text-sm border border-line rounded hover:bg-line/40"
-          >
-            {t.gateCreate}
-          </a>
-        </div>
-      </div>
-    );
-  }
-  // signed in, Substack not yet confirmed
-  return (
-    <div className="border border-line rounded p-8">
-      <h2 className="text-lg font-serif mb-2">{t.gateSubstackTitle}</h2>
-      <p className="text-sm text-muted font-serif mb-5 max-w-prose leading-relaxed">
-        {t.gateSubstackBody}
-      </p>
-      <iframe
-        src={SUBSTACK_EMBED}
-        title="Subscribe"
-        width={480}
-        height={320}
-        scrolling="no"
-        frameBorder={0}
-        className="rounded border border-line bg-white max-w-full mb-5"
-      />
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={onConfirmSubstack}
-          className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90"
-        >
-          {t.gateSubstackConfirm}
-        </button>
-        <a
-          href={substackUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-muted underline-offset-4 hover:underline"
-        >
-          {t.gateSubstackOpen}
-        </a>
-      </div>
     </div>
   );
 }

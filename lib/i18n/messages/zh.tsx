@@ -1,5 +1,7 @@
 /* eslint-disable react/jsx-key */
-// 繁體中文（香港用法）訊息目錄。結構必須與 en.tsx 完全一致
+// 繁體中文訊息目錄。用書面語，香港與台灣讀者都應讀得順
+// （避免粵語口語，也避免只有一地通行的詞：軟件/軟體、網絡/網路、增值/儲值）。
+// 結構必須與 en.tsx 完全一致
 // （以 `satisfies Messages` 強制檢查）。
 //
 // 詞彙規範（與後端報告一致）：
@@ -26,6 +28,7 @@ const zh = {
     edit: "編輯",
     saving: "儲存中…",
     dateLocale: "zh-HK",
+    substack: "每週札記 · Substack →",
   },
 
   langSwitcher: {
@@ -34,20 +37,51 @@ const zh = {
     zh: "中文",
   },
 
+  nav: {
+    signIn: "登入",
+    signUp: "免費註冊",
+    setup: "設定指南",
+    protocol: "協議",
+  },
+
   home: {
     tagline:
       "每個投資論點都是一棵樹。每項主張都有證偽條件。每個判定都經簽署、加上時間戳，並可被質疑。為 AI 原生股票研究而設的傳輸協議。",
+
+    // 第一道門 —— 任何人三十秒內用得到。
+    toolBadge: "毋須登入",
+    toolLede: "選股容易，決定投入多少才難。",
+    toolBody:
+      "輸入你看好的股票、你認為它在順境與逆境下分別會到甚麼價位，以及你有多大把握。系統隨即算出每支應該買多少、應該保留多少現金，以及在 IBKR 或富途可以直接照著下的委託指令。即時股價自動載入。",
+    toolCta: "立即計算 →",
+
+    // 第二道門 —— 同一件事的下半場：買入之後。以持有者真正會問的
+    // 問題開場，而不是以回答那個問題的機制開場。
+    protocolBadge: "註冊即送 50 credits",
+    protocolTitle: "怎樣知道自己看錯了？",
+    protocolLede: "買入那一刻，你有一套理由。三個月後，它還成立嗎？",
+    protocolBody:
+      "用你本來就在用的 AI，把那套理由拆成一棵樹——每一項主張都必須寫明：出現甚麼，就代表我錯了。寫不出來的，系統不讓你提交。之後每週用最新資料重新核對，判定一有變化就通知你。而不是等到帳面虧損三成才發現。",
+    protocolClients: "支援 Perplexity、Claude Desktop，以及任何 Remote-MCP 客戶端。",
+    protocolCta: "免費註冊",
+    protocolCtaSecondary: "設定指南 →",
+
+    haveAccount: "已經有帳戶？",
+    signIn: "登入",
+
     signUpFree: "免費註冊",
     setupGuide: "設定指南 →",
     myAccount: "我的帳戶",
     protocol: "協議 v0.3",
     health: "系統狀態",
-    whatYouGet: "你會得到甚麼",
+    whatYouGet: "跟直接問 AI 有甚麼不同？",
     bullets: [
-      "一個 MCP 伺服器，與你常用的 AI 客戶端（Perplexity、Claude Desktop、任何 Remote-MCP 主機）共同設計可證偽的假設樹。",
-      "164 套策略框架連同原典全文索引 — AI 以真實文獻為根據設計葉節點，而非泛泛提問。",
-      "即時同業股價數據、三情境同業估值、每週自動監測連判定提示。",
-      "註冊即送 50 個免費 credits — 足以完整發佈你的第一棵樹。毋須信用卡。已提交的樹只屬於你，預設私密。",
+      "直接問 AI，你會拿到一篇無從查證的分析。在這裡，每一項主張都必須附帶可觀察的證偽條件——一個數字、一個日期、一份披露。缺了，驗證器就不讓那棵樹通過；換言之，你無法發佈一項無法被推翻的主張。",
+      "判定由葉節點逐層算出來，而不是在結尾一段下結論。你看得到是哪一項主張令判定改變，也看得到哪一項最值得盯。",
+      "對話關掉分頁就結束了。已提交的樹會每週用最新股價與新證據重新核對，一旦有東西站不住，那一週就會告訴你。",
+      "葉節點的問題以 164 套策略框架連同原典全文為根據——AI 按你的個案挑合適的框架，據文獻提問，而不是泛泛而談。",
+      "樹以內容尋址、只增不改：你改變想法之後，舊版本仍然在。你當初怎樣想，有紀錄可查。",
+      "註冊即送 50 個免費 credits——足以完整發佈你的第一棵樹。毋須信用卡。已提交的樹只屬於你，預設私密。",
     ],
     privacyNote: "所有已提交的樹預設私密。不設任何公開的用戶或樹目錄。",
     footer: (
@@ -74,10 +108,10 @@ const zh = {
     createAccount: "建立我的帳戶",
     creating: "建立中…",
     legal:
-      "註冊即表示你同意 drawtree 屬結構化研究方法論軟件，並非受監管的投資建議。你的 API key 只屬於你，請勿與他人分享。我們不要求電郵驗證；同一電郵只可領取一次免費 credits。",
+      "註冊即表示你同意 drawtree 屬結構化研究方法論工具，並非受監管的投資建議。你的 API key 只屬於你，請勿與他人分享。我們不要求電郵驗證；同一電郵只可領取一次免費 credits。",
     emailExists: "此電郵已有帳戶。請改以電郵登入。",
     signupFailed: "註冊失敗",
-    networkError: "網絡錯誤",
+    networkError: "連線錯誤",
     welcome: "歡迎。",
     accountReady: (
       <>
@@ -129,8 +163,8 @@ const zh = {
     codeExpired: "此驗證碼已過期。請重新索取。",
     codeFormat: "驗證碼必須為 6 位數字。",
     signInFailed: (status: number | string) => `登入失敗（${status}）。`,
-    networkSend: "傳送驗證碼時發生網絡錯誤。",
-    networkVerify: "驗證時發生網絡錯誤。",
+    networkSend: "傳送驗證碼時發生連線錯誤。",
+    networkVerify: "驗證時發生連線錯誤。",
     emailMeCode: "電郵驗證碼給我",
     sending: "傳送中…",
     verifying: "驗證中…",
@@ -161,7 +195,7 @@ const zh = {
     linkInvalid: "此登入連結無效。請重新索取。",
     linkFailed: "登入失敗。請重新索取連結。",
     sendFailed: "無法傳送連結。請稍後再試。",
-    networkError: (detail: string) => `網絡錯誤（${detail}）。`,
+    networkError: (detail: string) => `連線錯誤（${detail}）。`,
     ifRegistered: "如該電郵已註冊，驗證碼已在路上。請查收（包括垃圾郵件夾）。",
     devModeNotice: "電郵發送服務尚未設定 — 請使用下方的連結或驗證碼。",
     devModeCode: "開發模式驗證碼：",
@@ -182,7 +216,7 @@ const zh = {
       `已釋放 ${n} 筆卡住的暫扣。可用 credits 已恢復。`,
     noStuckHolds: "沒有發現卡住的暫扣。",
     releaseFailed: "釋放失敗",
-    topupFailed: "增值失敗",
+    topupFailed: "加購失敗",
     regenerateConfirm: "確定要重新生成 API key？目前的 key 會即時失效。",
     regenerateFailed: "重新生成失敗",
     newKeyTitle: "你的 API key — 請立即複製",
@@ -277,7 +311,7 @@ const zh = {
     ),
     pickOne: "請至少選擇一項權限，或點按「拒絕」取消。",
     approvalFailed: (status: number) => `批准失敗（${status}）。`,
-    approvalNetwork: "批准過程中發生網絡錯誤。",
+    approvalNetwork: "批准過程中發生連線錯誤。",
     approve: "批准",
     approving: "批准中…",
     deny: "拒絕",
@@ -343,7 +377,7 @@ const zh = {
     generating: "生成中…",
     signInToGenerate: "想生成新 key？請先在上方步驟 1 登入。",
     keysStartWith: "Key 以 dt_ 開頭",
-    networkError: "網絡錯誤。",
+    networkError: "連線錯誤。",
     failed: (status: number) => `失敗（${status}）。`,
     regenerateConfirm:
       "此操作會發出一條全新的 API key，舊 key 會即時失效。所有現有的 CLI 安裝（Claude Code、Codex、Claude Desktop）都需要重新設定新 key。是否繼續？",
@@ -583,7 +617,7 @@ const zh = {
     skillPerplexityStep3: "附加檔案。skill 即時生效。",
     skillClaudeCodeIntro: (
       <>
-        Claude Code 的沙盒預設封鎖對外網絡連線，所以在 Claude 內用{" "}
+        Claude Code 的沙盒預設封鎖對外連線，所以在 Claude 內用{" "}
         <code>curl</code> 連到 <code>drawtree.capital</code> 不會成功。最順暢的做法是
         <strong>先在瀏覽器下載，再請 Claude 安裝</strong> —
         瀏覽器下載不受沙盒限制，Claude 只需寫入本機檔案。
@@ -609,7 +643,7 @@ const zh = {
     skillClaudeCodeManual: (
       <>
         在你的<strong>一般終端機</strong>（不是 Claude Code 內）執行 —
-        你的 shell 有完整網絡權限：
+        你的 shell 有完整的對外連線權限：
       </>
     ),
     copyCommand: "複製指令",
@@ -633,7 +667,7 @@ const zh = {
       "之後開新的 Codex 工作階段 — 新的 AGENTS.md 會在開始時載入。",
     preferTerminalShort: "想用自己的終端機？ →",
     skillCodexManual:
-      "在你的一般 shell（不是 Codex 內）執行，網絡不受限制：",
+      "在你的一般 shell（不是 Codex 內）執行，連線不受限制：",
     skillCodexPerProject: (
       <>
         按專案安裝的另一做法：把同一檔案放在{" "}
@@ -674,11 +708,11 @@ const zh = {
       <>首週監測 — 5 cr</>,
       <>
         <strong className="text-ink">合共：55 cr</strong> — 註冊送的 50 個免費
-        credits，加一次 $5 增值（50 cr）便足夠。
+        credits，加購一次 $5（50 cr）便足夠。
       </>,
     ],
-    topupTiers: "增值組合",
-    topupAtAccount: "到 /account 增值 →",
+    topupTiers: "加購方案",
+    topupAtAccount: "到 /account 加購 →",
     footerSpec: "協議規格",
     footerSupport: "電郵支援",
   },
@@ -755,7 +789,7 @@ const zh = {
     notSignedInLeaf: "尚未登入。請先開啟 /account 登入。",
     sessionExpired: "工作階段已過期。請開啟 /account 以新的登入連結重新登入。",
     sessionExpiredShort: "工作階段已過期。請從帳戶頁重新登入。",
-    notEnoughCredits: "Credits 不足。請到帳戶頁增值。",
+    notEnoughCredits: "Credits 不足。請到帳戶頁加購。",
     preflightFailed: (status: number) =>
       `預檢失敗（HTTP ${status}）。伺服器可能狀態異常 — 請 30 秒後再試。`,
     cantReachApi: (detail: string) =>
@@ -801,29 +835,19 @@ const zh = {
   },
 
   portfolio: {
-    navLabel: "倉位配置",
-    title: "倉位配置與再平衡",
+    navLabel: "應該買多少？",
+    title: "應該買多少？",
+    lede: "股票你已經選好了。接下來每支投入多少，才是最難的一步。",
     subtitle:
-      "將你的股票想法轉化為最佳目標權重——以凱利公式定注、按主動管理基本定律分散、設上限，並一鍵生成券商再平衡指令。",
-    loginNudge:
-      "人人可用——配置你的組合並生成 IBKR／Futu 再平衡指令，無需註冊。",
+      "輸入你看好的股票、你認為它在順境與逆境下分別會到甚麼價位，以及你有多大把握。系統隨即算出每支應該買多少、應該保留多少現金，以及可以直接交給券商的委託指令。背後採用：凱利定注、相關性折讓、單一標的硬上限。",
+    openNote:
+      "免費使用，毋須註冊。所有計算都在你的瀏覽器內完成——你輸入的數字不會存入任何帳戶。",
     loggedInAs: (handle: string) => `已登入：${handle}`,
 
-    gateChecking: "正在檢查你的帳戶…",
-    gateSignInTitle: "登入以使用組合工具",
-    gateSignInBody:
-      "倉位配置與再平衡僅供 Draw Tree 會員使用。請登入或建立帳戶以繼續。",
-    gateSignIn: "登入",
-    gateCreate: "建立帳戶",
-    gateSubstackTitle: "還差一步",
-    gateSubstackBody:
-      "本工具開放給我們的 Substack 訂閱者。請先訂閱（誠信制），然後確認以繼續。",
-    gateSubstackOpen: "開啟我們的 Substack →",
-    gateSubstackConfirm: "我已訂閱——繼續",
 
     ideasTitle: "你的想法",
     ideasHint:
-      "搜尋代號——現價會自動載入。填入你的牛市／熊市目標價與信心水平 p。兩情境邊際為負的標的會被標記並在配置前剔除。",
+      "搜尋代號，現價會自動載入。填入你認為它最高與最低會到甚麼價位，以及信心水平 p。兩種情境都無利可圖的標的，會被標記並在計算前剔除。",
     addIdea: "＋ 新增想法",
     remove: "移除",
     ticker: "代號",
@@ -839,7 +863,9 @@ const zh = {
     importedFrom: (h: string) => `已自 ${h} 匯入`,
     importFailed: "找不到該代號已提交的樹。",
     importNeedsTicker: "請先輸入代號。",
-    importLoginRequired: "登入後可匯入校準後的信心水平。",
+    importSignInNudge:
+      "曾經在 Drawtree 提交過樹？登入之後，每一列都會多一個匯入按鈕，直接取回該棵樹校準過的信心水平與目標價。",
+    importSignInCta: "登入",
 
     searchPlaceholder: "搜尋代號或公司…",
     searching: "搜尋中…",
@@ -847,7 +873,7 @@ const zh = {
     quoteFetching: "讀取價格中…",
     quoteFailed: "價格無法取得",
     priceLive: "實時",
-    infoEmpty: "選擇代號以載入實時價格及資料。",
+    infoEmpty: "選擇一個代號，即時股價與相關資料會自動載入。",
 
     advanced: "進階參數",
     kellyFraction: "凱利分數（c）",
@@ -855,17 +881,17 @@ const zh = {
     haircutLambda: "折讓 λ",
     noTradeThreshold: "免交易門檻",
     paramsHint:
-      "四分之一凱利（0.25）為預設安全邊際——絕不使用全凱利。上限為單一標的硬性天花板。λ 調節對相關標的折讓的力度。",
+      "預設四分之一凱利（0.25），作為安全邊際——切勿用足全凱利。上限是單一標的的硬性天花板。λ 調節相關標的要折讓多深。",
 
     resultsTitle: "目標組合",
-    emptyResults: "至少新增一個想法：牛市目標價高於現價、熊市目標價低於現價。",
+    emptyResults: "至少加入一支：牛市目標價要高於現價，熊市目標價要低於現價。",
     targetWeight: "目標",
     rawKelly: "原始凱利",
     cash: "現金",
     cashDiversification: "現金（分散限制）",
     portfolioConviction: "組合信心",
     portfolioConvictionHint:
-      "正規化前的原始凱利分數總和。偏低＝想法薄弱；出現現金回退＝想法太少。",
+      "正規化之前的原始凱利分數總和。偏低＝想法不夠紮實；退回現金＝想法太少。",
     flagDoNotBuy: "不要買入",
     flagCapped: "已封頂",
     flagHaircut: "已折讓",
@@ -889,12 +915,11 @@ const zh = {
       "相關性驅動第 2 層的分散折讓。所採用的數值為重疊多日回報的相關性，可避免跨市場雙重上市（ADR 與其本地股份）因交易時段不重疊而被低估；同日數值會並列顯示。無可信歷史的標的回退至行業先驗。",
 
     rebalanceTitle: "再平衡預覽",
-    rebalanceLocked: "登入後可生成券商再平衡指令。",
     broker: "券商",
     nlv: "淨清算價值",
     currentShares: "目前持股",
     sharesPlaceholder: "股數",
-    noPositions: "全新帳戶可留空——每個目標權重都會變成買入。",
+    noPositions: "全新帳戶請留空——每個目標比重都會變成買入。",
     orders: "指令",
     side: "方向",
     qty: "數量",
@@ -907,7 +932,12 @@ const zh = {
     executeDisabled: "執行——連接券商",
     executeNote:
       "僅供預覽。實際執行透過 IBKR／Futu MCP，預設為模擬盤優先，並須經明確的「先預覽後確認」步驟——本版本尚未啟用。",
-    persistenceNote: "將組合儲存至你的帳戶——即將推出。",
+    persistenceNote: "將組合儲存至帳戶——即將推出。",
+    saveNudgeTitle: "想保留這個組合嗎？",
+    saveNudgeBody:
+      "這個組合只存在於目前的瀏覽器分頁，關掉就會消失。開立免費帳戶後，日後便可以儲存組合、存放你提交過的樹，以及接收每週的判定通知。",
+    saveNudgeCta: "開立免費帳戶",
+    saveNudgeSignIn: "或者登入",
     sourceManual: "手動",
     sourceMcp: "Draw Tree",
   },

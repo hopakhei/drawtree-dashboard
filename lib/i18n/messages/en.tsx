@@ -27,6 +27,7 @@ const en = {
     edit: "Edit",
     saving: "Saving…",
     dateLocale: "en-CA",
+    substack: "Weekly notes on Substack →",
   },
 
   langSwitcher: {
@@ -35,20 +36,51 @@ const en = {
     zh: "中文",
   },
 
+  nav: {
+    signIn: "Sign in",
+    signUp: "Sign up free",
+    setup: "Setup guide",
+    protocol: "Protocol",
+  },
+
   home: {
     tagline:
       "Every investment thesis as a tree. Every claim has a kill condition. Every verdict is signed, timestamped, and disputable. The wire protocol for AI-native equity research.",
+
+    // Door 1 — the thing anyone can use in the next thirty seconds.
+    toolBadge: "No sign-in needed",
+    toolLede: "Picking the stock is the easy part.",
+    toolBody:
+      "Type in the names you like, where you think they're going, and how sure you are. Out comes how much of each to buy, how much to leave in cash, and the orders to place at IBKR or Futu. Live prices load themselves.",
+    toolCta: "Work it out →",
+
+    // Door 2 — the same job, after you've bought. Led by the question a
+    // holder actually asks, not by the machinery that answers it.
+    protocolBadge: "50 free credits on signup",
+    protocolTitle: "How will you know you're wrong?",
+    protocolLede: "The day you bought, you had a reason. Is it still true?",
+    protocolBody:
+      "Work with the AI you already use to break that reason into a tree — where every claim has to name what would prove it wrong. Can't name it, can't commit it. From then on it's re-checked weekly against fresh evidence, and you hear about it the week a verdict turns. Not when you're down 30%.",
+    protocolClients: "Works with Perplexity, Claude Desktop, any Remote-MCP client.",
+    protocolCta: "Sign up free",
+    protocolCtaSecondary: "Setup guide →",
+
+    haveAccount: "Already have an account?",
+    signIn: "Sign in",
+
     signUpFree: "Sign up free",
     setupGuide: "Setup guide →",
     myAccount: "My account",
     protocol: "Protocol v0.3",
     health: "Health",
-    whatYouGet: "What you get",
+    whatYouGet: "How is this different from just asking an AI?",
     bullets: [
-      "An MCP server that co-designs falsifiable hypothesis trees with your favourite AI client (Perplexity, Claude Desktop, any Remote-MCP host).",
-      "164 strategy frameworks indexed with canonical full-text — the AI grounds its leaf design in real source material, not generic questions.",
-      "Live peer-price data fetch, three-scenario peer valuation, weekly cron monitoring with verdict alerts.",
-      "50 free credits on signup — enough to publish your first tree end-to-end. No credit-card prompt. Trees you commit stay private to you.",
+      "Ask an AI about a stock and you get an essay you can't check. Here every claim must carry an observable kill condition — a number, a date, a disclosure. The validator rejects the tree if one is missing, so you cannot publish an unfalsifiable claim.",
+      "The verdict is computed from the leaves, not asserted in a closing paragraph. You can see which specific claim moved it, and which one is worth watching hardest.",
+      "A chat ends when you close the tab. A committed tree is re-checked weekly against fresh prices and new evidence, and tells you the week something breaks.",
+      "Leaf questions are grounded in 164 strategy frameworks with canonical full-text — the AI picks the framework that fits your case and asks from the literature, instead of asking generically.",
+      "Trees are content-addressed and append-only, so when you change your mind the old version is still there. Your past self stays on the record.",
+      "50 free credits on signup — enough to publish your first tree end-to-end. No credit-card prompt. Committed trees stay private to you.",
     ],
     privacyNote:
       "All committed trees are private by default. There is no public directory of users or trees.",
@@ -856,25 +888,14 @@ const en = {
   },
 
   portfolio: {
-    navLabel: "Position sizing",
-    title: "Position sizing & rebalancing",
+    navLabel: "How much to buy?",
+    title: "How much should I buy?",
+    lede: "You've picked the stocks. Now the hard part — the size of each bet.",
     subtitle:
-      "Turn your stock ideas into optimal target weights — Kelly-sized, diversified by the Fundamental Law of Active Management, capped, and turned into a one-click broker rebalance.",
-    loginNudge:
-      "Open to everyone — size your portfolio and generate IBKR / Futu rebalance commands, no account needed.",
+      "Type in the names you like, where you think each one is going in a good year and a bad one, and how sure you are. Out comes how much of each to buy, how much to leave in cash, and the orders to place at your broker. Under the hood: Kelly sizing, a correlation haircut, and a hard per-name cap.",
+    openNote:
+      "Free, no sign-up. The maths runs in your browser — the numbers you type aren't saved to any account.",
     loggedInAs: (handle: string) => `Signed in as ${handle}`,
-
-    gateChecking: "Checking your account…",
-    gateSignInTitle: "Sign in to use the portfolio tools",
-    gateSignInBody:
-      "Position sizing & rebalancing is for Draw Tree members. Sign in or create an account to continue.",
-    gateSignIn: "Sign in",
-    gateCreate: "Create account",
-    gateSubstackTitle: "One quick step",
-    gateSubstackBody:
-      "These tools are open to our Substack subscribers. Subscribe (it's on the honor system), then confirm to continue.",
-    gateSubstackOpen: "Open our Substack →",
-    gateSubstackConfirm: "I've subscribed — continue",
 
     ideasTitle: "Your ideas",
     ideasHint:
@@ -894,7 +915,9 @@ const en = {
     importedFrom: (h: string) => `Imported from ${h}`,
     importFailed: "No committed tree found for that ticker.",
     importNeedsTicker: "Enter a ticker first.",
-    importLoginRequired: "Log in to import calibrated conviction.",
+    importSignInNudge:
+      "Committed a tree on Drawtree already? Sign in and each row gets an import button that pulls the calibrated conviction and scenario targets straight from it.",
+    importSignInCta: "Sign in",
 
     searchPlaceholder: "Search ticker or company…",
     searching: "Searching…",
@@ -945,7 +968,6 @@ const en = {
       "Correlations drive the Layer-2 diversification haircut. The figure used is the correlation of overlapping multi-day returns, which keeps cross-market dual listings (an ADR and its local share) from being understated by non-overlapping trading hours; the same-day figure is shown alongside. Names without trusted history fall back to a sector prior.",
 
     rebalanceTitle: "Rebalance preview",
-    rebalanceLocked: "Log in to generate broker rebalance orders.",
     broker: "Broker",
     nlv: "Net liquidation value",
     currentShares: "Current shares held",
@@ -964,6 +986,11 @@ const en = {
     executeNote:
       "Preview only. Live execution runs through the IBKR / Futu MCP with a paper-first default and an explicit preview-then-confirm step — not enabled in this build.",
     persistenceNote: "Saving portfolios to your account is coming soon.",
+    saveNudgeTitle: "Want to keep this?",
+    saveNudgeBody:
+      "This portfolio lives in this browser tab only — close it and it's gone. A free account is where saved portfolios, your committed hypothesis trees, and weekly verdict monitoring will live.",
+    saveNudgeCta: "Create a free account",
+    saveNudgeSignIn: "or sign in",
     sourceManual: "manual",
     sourceMcp: "Draw Tree",
   },

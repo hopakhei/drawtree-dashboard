@@ -4,7 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Newsreader } from "next/font/google";
 import { getLocale } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
-import LangSwitcher from "./_components/LangSwitcher";
+import SiteNav from "./_components/SiteNav";
 
 const newsreader = Newsreader({
   subsets: ["latin"],
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="bg-paper text-ink antialiased font-mono">
         <LocaleProvider initialLocale={locale}>
-          <LangSwitcher />
+          <SiteNav />
           {children}
         </LocaleProvider>
         <Analytics />
