@@ -1,13 +1,28 @@
 /* =============================================================================
    Drawtree — AI Conviction-Driven Position Sizing & Rebalancing Engine
-   Production Spec v1.3 · Layers 1–5, pure & deterministic (no I/O, no deps).
+   Production Spec v2.0 · Layers 1–5, pure & deterministic (no I/O, no deps).
 
-   Layer 1  Raw fractional Kelly         f_i = max(0, c·(p·b − q·a)/(a·b))
+   Layer 1  Raw fractional Kelly — two modes, chosen per idea:
+            binary (legacy)      f_i = max(0, c·(p·b − q·a)/(a·b)), capped 20c
+            mixture (v2.0)       f_i = c·μ/m₂ over the three-scenario mixture,
+                                 μ = Σ π_k·r_k, m₂ = Σ π_k·r_k² (second raw
+                                 moment). An idea carrying valid `base` +
+                                 `probs` is sized by the mixture; otherwise
+                                 the binary path applies unchanged.
    Layer 2  Fundamental Law of Active Management — correlation-haircut alpha
             distribution: w_L2 ∝ k_i · 1/(1 + λ_h·redundancy_i)
    Layer 3  Normalize to 100%
    Layer 4  Iterative 33% cap (water-fill) + cash fallback for too-few names
    Layer 5  Rebalance command generator (delta → board-lot orders)
+
+   Why the mixture mode exists (v2.0, 2026-09-01): the binary formula has a
+   simple pole at P = bear — f = c·p·bear/(P − bear) + O(1) — so a name whose
+   price approaches its bear target is sized toward infinity, then cliff-drops
+   to excluded the moment P ≤ bear (2026-07-11 ONDS: 4% downside → 531% raw
+   Kelly). The mixture denominator is the dispersion of the WHOLE three-point
+   distribution, not the bear leg alone, so f is finite and continuous for all
+   P > 0 (including below bear), with the a-priori bound f ≤ c/√m₂
+   (Cauchy–Schwarz). Layers 2–5 consume the positive f vector unchanged.
 
    Covariance note: the spec calls for a Ledoit-Wolf shrunk Ω. Layer 2 consumes
    a CorrelationSource — pairwise correlations estimated from historical daily
@@ -21,6 +36,10 @@ import type { CorrelationSource } from "./correlation";
 
 export type ConvictionSource = "manual" | "mcp";
 
+/** Scenario probabilities for the mixture Kelly path. Must be non-negative and
+ *  sum to 1 (±1e-6); validated by hasMixtureInputs / the API layer. */
+export type ScenarioProbs = { bull: number; base: number; bear: number };
+
 export type Idea = {
   /** Local row id (stable across edits, not sent to any broker). */
   id: string;
@@ -30,6 +49,12 @@ export type Idea = {
   bull: number;
   /** Bear-case target price. */
   bear: number;
+  /** Base-case target price — optional; with `probs` it switches the idea to
+   *  the mixture Kelly path. */
+  base?: number;
+  /** Scenario probabilities — optional; with `base` it switches the idea to
+   *  the mixture Kelly path. */
+  probs?: ScenarioProbs;
   /** Current price (manual, or imported from a Draw Tree valuation snapshot). */
   current: number;
   /** Conviction p ∈ (0,1). */
@@ -91,6 +116,8 @@ function sectorCorrelation(a: Idea, b: Idea): number {
 
 export type AllocationFlag = "do_not_buy" | "capped" | "haircut" | null;
 
+export type SizingMode = "binary" | "mixture";
+
 export type Allocation = {
   id: string;
   ticker: string;
@@ -99,6 +126,8 @@ export type Allocation = {
   /** Final target weight after Layers 2–4 (0 for excluded names). */
   target_weight: number;
   flag: AllocationFlag;
+  /** Which Layer-1 path sized this idea. */
+  sizing_mode: SizingMode;
   /** Upside odds b = (bull − current)/current. */
   b: number;
   /** Downside magnitude a = (current − bear)/current. */
@@ -125,9 +154,40 @@ export type SizeResult = {
 };
 
 // ----------------------------------------------------------------------------
-// Layer 1 — Raw fractional Kelly
+// Layer 1 — Raw fractional Kelly (binary + mixture)
 // ----------------------------------------------------------------------------
-type KellyResult = { f: number; b: number; a: number; reason?: string };
+type KellyResult = { f: number; b: number; a: number; mode: SizingMode; reason?: string };
+
+/** Binary-path safety cap, expressed as a multiple of c. Callers that floor
+ *  perceived downside at 5% (stock-trees DOWNSIDE_FLOOR) already imply
+ *  f = c·(p/a − q/b) ≤ c·p/a ≤ 20c; enforcing the same bound here protects any
+ *  caller that does NOT floor from the a → 0 pole (2026-07-11 ONDS: 4%
+ *  downside → 531% raw Kelly would have been an unbounded 20×+ but for the
+ *  caller-side floor). The cap only binds on pathological inputs. */
+const BINARY_F_CAP_MULT = 20;
+
+/** Mixture-path hard ceiling on f — belt-and-braces above the analytic bound
+ *  f ≤ c/√m₂; should never bind at c = 0.5 on sane scenario spreads. */
+const MIXTURE_F_HARD_CAP = 2.0;
+
+/** Minimum probability atom after flooring: prevents a degenerate single-point
+ *  mixture (e.g. p_used collapsed to {bear: 1} at P ≤ bear) from reproducing
+ *  the pole via m₂ = r_bear² → 0. Floored atoms are renormalized to sum 1. */
+const PROB_ATOM_FLOOR = 0.005;
+
+/** Guard on the second raw moment — below this the three scenarios are
+ *  numerically indistinguishable from the current price and no meaningful
+ *  Kelly exists. */
+const M2_MIN = 1e-6;
+
+export function hasMixtureInputs(idea: Idea): boolean {
+  const pr = idea.probs;
+  if (!pr || !(typeof idea.base === "number") || !(idea.base > 0)) return false;
+  const vals = [pr.bull, pr.base, pr.bear];
+  if (!vals.every((v) => typeof v === "number" && Number.isFinite(v) && v >= 0)) return false;
+  const sum = pr.bull + pr.base + pr.bear;
+  return Math.abs(sum - 1) < 1e-6;
+}
 
 export function rawKelly(idea: Idea, c: number): KellyResult {
   const P = idea.current;
@@ -135,16 +195,59 @@ export function rawKelly(idea: Idea, c: number): KellyResult {
   const q = 1 - p;
   const b = (idea.bull - P) / P;
   const a = (P - idea.bear) / P;
+  const mode: SizingMode = "binary";
 
-  if (!(P > 0)) return { f: 0, b, a, reason: "current price must be > 0" };
-  if (!(b > 0)) return { f: 0, b, a, reason: "bull target must exceed current price" };
-  if (!(a > 0)) return { f: 0, b, a, reason: "bear target must be below current price" };
+  if (!(P > 0)) return { f: 0, b, a, mode, reason: "current price must be > 0" };
+  if (!(b > 0)) return { f: 0, b, a, mode, reason: "bull target must exceed current price" };
+  if (!(a > 0)) return { f: 0, b, a, mode, reason: "bear target must be below current price" };
 
-  // f = c · (p·b − q·a) / (a·b)
+  // f = c · (p·b − q·a) / (a·b), capped — see BINARY_F_CAP_MULT.
   const edge = p * b - q * a;
-  const f = c * (edge / (a * b));
-  if (!(f > 0)) return { f: 0, b, a, reason: "negative edge — do not buy" };
-  return { f, b, a };
+  const f = Math.min(c * (edge / (a * b)), BINARY_F_CAP_MULT * c);
+  if (!(f > 0)) return { f: 0, b, a, mode, reason: "negative edge — do not buy" };
+  return { f, b, a, mode };
+}
+
+/** Mixture Kelly (spec v2.0): exact second-order Taylor maximizer of
+ *  E[log(1 + f·r)] over the three-scenario mixture — f = c·μ/m₂ with
+ *  μ = Σ π_k·r_k and m₂ = Σ π_k·r_k² (raw second moment, ≥ Var, hence the
+ *  more conservative denominator). Finite and continuous for every P > 0:
+ *  as P → bear the bull/base terms hold m₂ away from zero, so the binary
+ *  pole is structurally absent rather than clamped. */
+export function rawKellyMixture(idea: Idea, c: number): KellyResult {
+  const P = idea.current;
+  const b = (idea.bull - P) / P;
+  const a = (P - idea.bear) / P;
+  const mode: SizingMode = "mixture";
+
+  if (!(P > 0)) return { f: 0, b, a, mode, reason: "current price must be > 0" };
+  if (!hasMixtureInputs(idea)) {
+    return { f: 0, b, a, mode, reason: "mixture inputs invalid (base/probs)" };
+  }
+
+  // Floor + renormalize the atoms so no single scenario carries all the mass.
+  const pr = idea.probs as ScenarioProbs;
+  let piBull = Math.max(pr.bull, PROB_ATOM_FLOOR);
+  let piBase = Math.max(pr.base, PROB_ATOM_FLOOR);
+  let piBear = Math.max(pr.bear, PROB_ATOM_FLOOR);
+  const piSum = piBull + piBase + piBear;
+  piBull /= piSum;
+  piBase /= piSum;
+  piBear /= piSum;
+
+  const rBull = (idea.bull - P) / P;
+  const rBase = ((idea.base as number) - P) / P;
+  const rBear = (idea.bear - P) / P;
+
+  const mu = piBull * rBull + piBase * rBase + piBear * rBear;
+  const m2 = piBull * rBull * rBull + piBase * rBase * rBase + piBear * rBear * rBear;
+
+  if (!(mu > 0)) return { f: 0, b, a, mode, reason: "non-positive blended edge — do not buy" };
+  if (!(m2 >= M2_MIN)) return { f: 0, b, a, mode, reason: "degenerate scenario dispersion" };
+
+  const f = Math.min(c * (mu / m2), MIXTURE_F_HARD_CAP);
+  if (!(f > 0)) return { f: 0, b, a, mode, reason: "non-positive blended edge — do not buy" };
+  return { f, b, a, mode };
 }
 
 // ----------------------------------------------------------------------------
@@ -161,13 +264,18 @@ export function sizePortfolio(
   const warnings: string[] = [];
 
   // --- Layer 1 -------------------------------------------------------------
-  const survivors: { idea: Idea; f: number; b: number; a: number }[] = [];
+  // Per-idea dispatch: an idea carrying valid base+probs is sized by the
+  // mixture path (spec v2.0), everything else by the legacy binary path —
+  // mixed requests are fine, and Layers 2–5 only ever see the positive f.
+  const survivors: { idea: Idea; f: number; b: number; a: number; mode: SizingMode }[] = [];
   const excluded: Allocation[] = [];
   for (const idea of ideas) {
     if (!idea.ticker.trim()) continue;
-    const { f, b, a, reason } = rawKelly(idea, c);
+    const { f, b, a, mode, reason } = hasMixtureInputs(idea)
+      ? rawKellyMixture(idea, c)
+      : rawKelly(idea, c);
     if (f > 0) {
-      survivors.push({ idea, f, b, a });
+      survivors.push({ idea, f, b, a, mode });
     } else {
       excluded.push({
         id: idea.id,
@@ -175,6 +283,7 @@ export function sizePortfolio(
         raw_kelly: 0,
         target_weight: 0,
         flag: "do_not_buy",
+        sizing_mode: mode,
         b,
         a,
         reason,
@@ -285,6 +394,7 @@ export function sizePortfolio(
       raw_kelly: x.f,
       target_weight: weights[i],
       flag,
+      sizing_mode: x.mode,
       b: x.b,
       a: x.a,
     };
