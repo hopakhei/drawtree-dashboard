@@ -61,6 +61,20 @@ export async function POST(req: NextRequest) {
     conviction_source: x?.conviction_source === "mcp" ? "mcp" : "manual",
     sector: x?.sector ? String(x.sector) : undefined,
     lot_size: x?.lot_size && num(x.lot_size) > 0 ? num(x.lot_size) : 1,
+    // Optional mixture-path inputs (spec v2.0). Passed through only when the
+    // whole set is well-formed; hasMixtureInputs re-validates in the engine,
+    // and a malformed set falls back to the binary path rather than erroring.
+    ...(x?.base != null && num(x.base) > 0 ? { base: num(x.base) } : {}),
+    ...(x?.probs &&
+    ["bull", "base", "bear"].every((k) => Number.isFinite(num(x.probs[k])) && num(x.probs[k]) >= 0)
+      ? {
+          probs: {
+            bull: num(x.probs.bull),
+            base: num(x.probs.base),
+            bear: num(x.probs.bear),
+          },
+        }
+      : {}),
   }));
 
   // --- params --------------------------------------------------------------
@@ -175,6 +189,7 @@ export async function POST(req: NextRequest) {
       target_weight: round4(a.target_weight),
       raw_kelly: round4(a.raw_kelly),
       flag: a.flag,
+      sizing_mode: a.sizing_mode,
       ...(o
         ? {
             current_weight: round4(o.current_weight),
@@ -193,7 +208,12 @@ export async function POST(req: NextRequest) {
     cash: round4(sized.cash),
     cash_reason: sized.cash_reason,
     portfolio_conviction: round4(sized.portfolio_conviction),
-    excluded: sized.excluded.map((e) => ({ ticker: e.ticker, flag: e.flag, reason: e.reason })),
+    excluded: sized.excluded.map((e) => ({
+      ticker: e.ticker,
+      flag: e.flag,
+      sizing_mode: e.sizing_mode,
+      reason: e.reason,
+    })),
     correlation: correlation
       ? {
           tickers: correlation.tickers,
