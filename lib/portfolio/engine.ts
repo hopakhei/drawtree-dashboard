@@ -166,9 +166,12 @@ type KellyResult = { f: number; b: number; a: number; mode: SizingMode; reason?:
  *  caller-side floor). The cap only binds on pathological inputs. */
 const BINARY_F_CAP_MULT = 20;
 
-/** Mixture-path hard ceiling on f — belt-and-braces above the analytic bound
- *  f ≤ c/√m₂; should never bind at c = 0.5 on sane scenario spreads. */
-const MIXTURE_F_HARD_CAP = 2.0;
+/* Mixture-path hard ceiling: REMOVED by maintainer ruling 2026-09-01. The 2.0
+ * belt-and-braces cap was pre-registered as "should never bind"; a same-day
+ * replay of real inputs showed it binding on three healthy narrow-dispersion
+ * trees (MDB 2.29, PM 2.17, AAPL 2.06) — an insurance fuse that turned into an
+ * active constraint. The formula's own bound f ≤ c/√m₂ (Cauchy–Schwarz) plus
+ * the M2_MIN and PROB_ATOM_FLOOR guards below remain the safety layer. */
 
 /** Minimum probability atom after flooring: prevents a degenerate single-point
  *  mixture (e.g. p_used collapsed to {bear: 1} at P ≤ bear) from reproducing
@@ -245,7 +248,7 @@ export function rawKellyMixture(idea: Idea, c: number): KellyResult {
   if (!(mu > 0)) return { f: 0, b, a, mode, reason: "non-positive blended edge — do not buy" };
   if (!(m2 >= M2_MIN)) return { f: 0, b, a, mode, reason: "degenerate scenario dispersion" };
 
-  const f = Math.min(c * (mu / m2), MIXTURE_F_HARD_CAP);
+  const f = c * (mu / m2);
   if (!(f > 0)) return { f: 0, b, a, mode, reason: "non-positive blended edge — do not buy" };
   return { f, b, a, mode };
 }
