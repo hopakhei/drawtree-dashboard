@@ -182,7 +182,22 @@ const c = 0.5; // stock-trees pre-registered half-Kelly
     probs: { bull: 0, base: 0, bear: 1 },
   };
   const d = rawKellyMixture(degen, c);
-  check("D1 single-atom probs cannot reproduce the pole", Number.isFinite(d.f) && d.f <= 2.0, `f=${d.f}`);
+  // Analytic bound with the floored+renormalized atoms (hard cap removed by
+  // maintainer ruling 2026-09-01 — the formula's own bound is the ceiling).
+  const dp = { bull: 0.005, base: 0.005, bear: 1 };
+  const dpSum = dp.bull + dp.base + dp.bear;
+  const dr = {
+    bull: (degen.bull - degen.current) / degen.current,
+    base: (degen.base! - degen.current) / degen.current,
+    bear: (degen.bear - degen.current) / degen.current,
+  };
+  const dm2 =
+    (dp.bull / dpSum) * dr.bull ** 2 + (dp.base / dpSum) * dr.base ** 2 + (dp.bear / dpSum) * dr.bear ** 2;
+  check(
+    "D1 single-atom probs cannot reproduce the pole",
+    Number.isFinite(d.f) && d.f <= c / Math.sqrt(dm2) + 1e-9,
+    `f=${d.f} bound=${(c / Math.sqrt(dm2)).toFixed(3)}`,
+  );
 
   // μ ≤ 0 (price above the blended expectation) → excluded.
   const rich: Idea = {
