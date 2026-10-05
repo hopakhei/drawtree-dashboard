@@ -56,6 +56,18 @@ export type Leaf = {
   notes?: string;
   conclusion?: string;
   evidence?: any;
+  // protocol v0.3 reader and monitor fields (all optional)
+  short_question?: string;
+  reading_guide?: any;
+  article_hypothesis?: string;
+  article_conclusion?: string;
+  article_falsifiers?: any;
+  article_after?: string;
+  conditions?: any[];
+  condition_assessments?: any[];
+  verdict_history?: any[];
+  monitor_rejected_change?: any;
+  monitor_freshness?: any;
 };
 
 export type Scenarios = {
@@ -122,8 +134,8 @@ const VERDICT_BADGE: Record<string, { icon: string; color: string }> = {
   validated:                   { icon: "✅", color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
   trending_positive:           { icon: "🟢", color: "text-emerald-600 bg-emerald-50/60 border-emerald-200" },
   inconclusive:                { icon: "⚪", color: "text-muted bg-paper border-line" },
-  trending_negative:           { icon: "🟠", color: "text-orange-700 bg-orange-50 border-orange-200" },
-  approaching_falsification:   { icon: "🟡", color: "text-amber-700 bg-amber-50 border-amber-200" },
+  trending_negative:           { icon: "🟡", color: "text-amber-700 bg-amber-50 border-amber-200" },
+  approaching_falsification:   { icon: "🟠", color: "text-orange-700 bg-orange-50 border-orange-200" },
   falsified:                   { icon: "✗", color: "text-red-700 bg-red-50 border-red-200" },
 };
 
@@ -133,8 +145,8 @@ const EMOJI_TO_STATE: Record<string, string> = {
   "✅": "validated",
   "🟢": "trending_positive",
   "⚪": "inconclusive",
-  "🟠": "trending_negative",
-  "🟡": "approaching_falsification",
+  "🟡": "trending_negative",
+  "🟠": "approaching_falsification",
   "✗": "falsified",
   "❌": "falsified",
 };
@@ -479,6 +491,23 @@ function LeafCard({
       ? `${f.metric ?? "?"} ${f.operator ?? ""} ${f.threshold ?? ""}${f.window ? ` (${f.window})` : ""}`
       : null;
   const dataPoints = Array.isArray((leaf as any).data_points) ? (leaf as any).data_points : [];
+  // protocol v0.3 reader + monitor fields
+  const readerFalsifiers: string[] = Array.isArray(leaf.article_falsifiers)
+    ? leaf.article_falsifiers.map((x: any) => (typeof x === "string" ? x : x?.text || JSON.stringify(x)))
+    : typeof leaf.article_falsifiers === "string" && leaf.article_falsifiers
+    ? [leaf.article_falsifiers]
+    : [];
+  const readingGuide: [string, string][] =
+    leaf.reading_guide && typeof leaf.reading_guide === "object" && !Array.isArray(leaf.reading_guide)
+      ? Object.entries(leaf.reading_guide as Record<string, any>).map(([k, v]) => [k, String(v ?? "")] as [string, string])
+      : [];
+  const conditions: any[] = Array.isArray(leaf.conditions) ? leaf.conditions.filter((c: any) => c && typeof c === "object") : [];
+  const assessmentByCid: Record<string, any> = {};
+  for (const a of Array.isArray(leaf.condition_assessments) ? leaf.condition_assessments : []) {
+    if (a && typeof a === "object" && a.cid) assessmentByCid[String(a.cid)] = a;
+  }
+  const history: any[] = Array.isArray(leaf.verdict_history) ? leaf.verdict_history.filter((h: any) => h && typeof h === "object") : [];
+  const latestJudgement = history.length > 0 ? history[history.length - 1] : null;
   return (
     <li className="border border-line rounded">
       <button
@@ -501,6 +530,35 @@ function LeafCard({
       </button>
       {open && (
         <div className="px-4 py-3 border-t border-line text-sm space-y-2 bg-paper">
+          {(leaf.article_hypothesis || leaf.article_conclusion || readerFalsifiers.length > 0 || leaf.article_after) && (
+            <div className="border border-line rounded p-3 bg-paper-2/40 space-y-2">
+              {leaf.short_question && (
+                <div className="text-sm font-medium">{leaf.short_question}</div>
+              )}
+              {(leaf.article_conclusion || leaf.article_hypothesis) && (
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-muted">{m.protocol.readerNow}</div>
+                  <div>{leaf.article_conclusion || leaf.article_hypothesis}</div>
+                </div>
+              )}
+              {readerFalsifiers.length > 0 && (
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-muted">{m.protocol.readerFalsifiers}</div>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {readerFalsifiers.map((x, i) => (
+                      <li key={i}>{x}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {leaf.article_after && (
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-muted">{m.protocol.readerAfter}</div>
+                  <div>{leaf.article_after}</div>
+                </div>
+              )}
+            </div>
+          )}
           {leaf.hypothesis && (
             <div>
               <div className="text-[11px] uppercase tracking-wider text-muted">{m.framework.hypothesis}</div>
@@ -539,6 +597,62 @@ function LeafCard({
             <div>
               <div className="text-[11px] uppercase tracking-wider text-muted">{m.framework.notes}</div>
               <div className="text-muted">{leaf.notes}</div>
+            </div>
+          )}
+          {readingGuide.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-muted">{m.protocol.readingGuide}</div>
+              <ul className="text-xs text-muted space-y-0.5">
+                {readingGuide.map(([k, v], i) => (
+                  <li key={i}>
+                    <span className="mr-1">{k}</span>
+                    {v}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {conditions.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-muted">{m.protocol.conditions}</div>
+              <ul className="text-xs space-y-0.5">
+                {conditions.map((c: any, i: number) => {
+                  const st = String(c?.status || "open");
+                  const latched = st === "breached" || st === "met" || st === "expired_unfulfilled";
+                  const a = assessmentByCid[String(c?.cid || "")];
+                  return (
+                    <li key={c?.cid || i} className="flex flex-wrap items-baseline gap-x-2">
+                      <code className="text-[10px] text-muted">{c?.cid}</code>
+                      <span>{c?.text || [c?.metric, c?.operator, c?.threshold, c?.unit].filter(Boolean).join(" ")}</span>
+                      <span className={`text-[10px] px-1 rounded border ${latched ? "text-red-700 border-red-200 bg-red-50" : "text-muted border-line"}`}>
+                        {(m.protocol.conditionStatus as any)[st] || st}
+                      </span>
+                      {a?.assessment && <span className="text-[10px] text-muted">· {a.assessment}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+          {latestJudgement && (
+            <div className="text-xs text-muted">
+              <span className="text-[11px] uppercase tracking-wider">{m.protocol.latestJudgement}</span>{" "}
+              {latestJudgement.date}
+              {latestJudgement.changed ? ` · ${latestJudgement.from} → ${latestJudgement.to}` : ""}
+              {latestJudgement.provenance
+                ? ` · ${(m.protocol.provenance as any)[latestJudgement.provenance] || latestJudgement.provenance}`
+                : ""}
+              {latestJudgement.freshness?.tier
+                ? ` · ${(m.protocol.freshness as any)[latestJudgement.freshness.tier] || latestJudgement.freshness.tier}`
+                : ""}
+            </div>
+          )}
+          {leaf.monitor_rejected_change && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+              {m.protocol.rejectedNote(
+                String(leaf.monitor_rejected_change.proposed || ""),
+                String(leaf.monitor_rejected_change.reason || ""),
+              )}
             </div>
           )}
           {/* Evidence list with edit affordances */}

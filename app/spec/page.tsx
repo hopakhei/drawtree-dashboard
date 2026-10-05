@@ -1,10 +1,13 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Draw Tree Protocol — drawtree.capital",
+  title: "Draw Tree Protocol v0.3 — drawtree.capital",
   description:
-    "The wire protocol behind Draw Tree: a five-layer hypothesis-tree schema, a 38-tool MCP server, and a six-state verdict vocabulary that any AI client can drive.",
+    "The protocol behind Draw Tree: impact-graded hypothesis trees, structured falsification conditions, rule-bound valuation (two decisions), a weekly judge with an evidence gate, and append-only signed versions.",
 };
+
+const MCP_REPO = "https://github.com/hopakhei/drawtree-mcp";
+const API_REPO = "https://github.com/hopakhei/drawtree-api";
 
 export default function SpecPage() {
   return (
@@ -14,18 +17,20 @@ export default function SpecPage() {
       {/* -------------------------------------------------------- */}
       <header className="mb-12">
         <div className="text-xs text-muted uppercase tracking-wider">
-          Protocol · v0.3 (2026-06)
+          Protocol · v0.3 (2026-10-05)
         </div>
         <h1 className="text-3xl tracking-tight mt-2">
           The Draw Tree Protocol
         </h1>
         <p className="text-muted mt-4 leading-relaxed text-sm">
-          A wire protocol for AI-native equity research. Defines how a
-          hypothesis tree is structured, how it is co-designed step by
-          step with the user, how it is researched in a single batched
-          job, and how it is monitored week after week. Any
-          MCP-compatible AI client — ChatGPT, Claude.ai, Perplexity,
-          Claude Code, Codex, Claude Desktop — can drive it.
+          A protocol for AI-native equity research. It defines what a
+          falsifiable hypothesis tree is, how its branch weights are
+          derived from valuation impact, how valuation is reduced to two
+          human decisions, how a weekly judge may and may not change a
+          verdict, and how every write is recorded as a signed,
+          append-only version. Any MCP-compatible client — ChatGPT,
+          Claude.ai, Claude Desktop, Claude Code, Codex, Perplexity —
+          can drive it.
         </p>
         <div className="mt-4 flex flex-wrap gap-3 text-xs">
           <Link
@@ -41,28 +46,28 @@ export default function SpecPage() {
             Try free
           </Link>
           <a
-            href="https://github.com/Draw-Tree/drawtree-protocol"
+            href={`${MCP_REPO}/blob/main/docs/PROTOCOL_v0.3.md`}
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
           >
-            Spec on GitHub ↗
+            Spec ↗
           </a>
           <a
-            href="https://github.com/Draw-Tree/drawtree-validator"
+            href={MCP_REPO}
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
           >
-            Validator ↗
+            Kernel + MCP server ↗
           </a>
           <a
-            href="https://github.com/Draw-Tree/drawtree-skill"
+            href={`${API_REPO}/blob/main/docs/VALUATION_RULES.md`}
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
           >
-            Skill ↗
+            Valuation rules ↗
           </a>
           <a
             href="https://drawtree-mcp.onrender.com/.well-known/oauth-protected-resource"
@@ -76,22 +81,19 @@ export default function SpecPage() {
       </header>
 
       {/* -------------------------------------------------------- */}
-      {/* 0 · Protocol vs MCP — the layering                       */}
+      {/* 0 · Protocol vs MCP                                       */}
       {/* -------------------------------------------------------- */}
       <section className="mb-12">
         <h2 className="text-xl tracking-tight mb-3">
           0 · Protocol vs MCP — two different layers
         </h2>
         <p className="text-sm text-muted mb-4 leading-relaxed">
-          A common point of confusion: <strong>MCP</strong> (Model
-          Context Protocol) is a generic transport spec that lets any
-          AI client talk to any tool server. It defines how to{" "}
-          <code>tools/list</code>, how to call a tool, how OAuth works
-          on the wire — it knows nothing about what the server
-          actually does. The <strong>Draw Tree Protocol</strong> is a
-          domain contract: what a valid investment hypothesis tree
-          looks like, what verdict vocabulary it uses, how branch
-          weights aggregate, what valuation methods are accepted.
+          <strong>MCP</strong> (Model Context Protocol) is a transport:
+          how a client lists tools, calls one, and authenticates. It
+          knows nothing about investment research. The{" "}
+          <strong>Draw Tree Protocol</strong> is the domain contract:
+          what a valid tree is, how verdicts aggregate, which valuation
+          methods are admissible, what the weekly judge may do.
         </p>
         <div className="border border-line rounded overflow-hidden mt-4">
           <table className="w-full text-xs">
@@ -99,166 +101,100 @@ export default function SpecPage() {
               <tr>
                 <th className="px-3 py-2 font-medium">Layer</th>
                 <th className="px-3 py-2 font-medium">What it defines</th>
-                <th className="px-3 py-2 font-medium">Analogy</th>
+                <th className="px-3 py-2 font-medium">Where it lives</th>
               </tr>
             </thead>
             <tbody className="text-muted">
               <tr className="border-t border-line">
                 <td className="px-3 py-2 font-mono text-ink">MCP</td>
                 <td className="px-3 py-2">Transport, discovery, auth.</td>
-                <td className="px-3 py-2">HTTP</td>
+                <td className="px-3 py-2">drawtree-mcp (hosted and stdio)</td>
               </tr>
               <tr className="border-t border-line">
-                <td className="px-3 py-2 font-mono text-ink">Draw Tree Protocol</td>
-                <td className="px-3 py-2">Tree schema, verdict vocab, aggregation rules, validation invariants.</td>
-                <td className="px-3 py-2">OpenAPI schema</td>
+                <td className="px-3 py-2 font-mono text-ink">Protocol kernel</td>
+                <td className="px-3 py-2">Schema, validator, aggregator, condition sweep, verdict-change gate, migration.</td>
+                <td className="px-3 py-2">
+                  <code>drawtree_mcp/_kernel</code> and <code>drawtree-api/core</code> — the same code
+                </td>
+              </tr>
+              <tr className="border-t border-line">
+                <td className="px-3 py-2 font-mono text-ink">State</td>
+                <td className="px-3 py-2">Drafts, trees, versions, valuation decisions, subscriptions.</td>
+                <td className="px-3 py-2">drawtree-api (FastAPI + Postgres)</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p className="text-sm text-muted mt-4 leading-relaxed">
-          You could in principle implement the Draw Tree Protocol over
-          plain REST or gRPC and skip MCP entirely. You could equally
-          host a completely different research methodology over MCP.
-          Today we ship the protocol on MCP because that&apos;s the
-          transport AI clients understand natively.
-        </p>
-
-        <h3 className="text-sm font-medium mt-6 mb-2">
-          Why this protocol is open
-        </h3>
+        <h3 className="text-sm font-medium mt-6 mb-2">Why this protocol is open</h3>
         <p className="text-sm text-muted leading-relaxed">
           A tool that claims to bring scientific method to investment
-          research cannot itself be a black box. The whole point of
-          scientific method, since Boyle and Hooke, has been that the
-          procedure is public — the conclusions can be argued with,
-          but only because the procedure can be inspected, repeated,
-          and challenged by anyone.
-        </p>
-        <p className="text-sm text-muted mt-3 leading-relaxed">
-          So the Draw Tree Protocol — the tree schema, the verdict
-          vocabulary, the aggregation rules, the validation
-          invariants, the <code>SKILL.md</code> contract that
-          governs how AI clients behave — belongs to whoever wants
-          to use it. Anyone can read this page, implement a server,
-          and produce trees that interoperate with the ones on
-          drawtree.capital.
-        </p>
-        <p className="text-sm text-muted mt-3 leading-relaxed">
-          The full normative specification lives at{" "}
-          <a
-            href="https://github.com/Draw-Tree/drawtree-protocol"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-ink underline-offset-4 hover:underline"
-          >
-            github.com/Draw-Tree/drawtree-protocol
-          </a>
-          . A reference Python validator (<code>pip install
-          drawtree-validator</code>) is at{" "}
-          <a
-            href="https://github.com/Draw-Tree/drawtree-validator"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-ink underline-offset-4 hover:underline"
-          >
-            github.com/Draw-Tree/drawtree-validator
-          </a>
-          . The AI-client contract (SKILL.md / AGENTS.md / system
-          prompt) is at{" "}
-          <a
-            href="https://github.com/Draw-Tree/drawtree-skill"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-ink underline-offset-4 hover:underline"
-          >
-            github.com/Draw-Tree/drawtree-skill
-          </a>
-          . All three are MIT-licensed.
-        </p>
-        <p className="text-sm text-muted mt-3 leading-relaxed">
-          If drawtree.capital ever disappears, the trees you have
-          committed remain readable against this spec. Another team
-          can re-implement the server without our cooperation. That
-          is not a contingency plan — it is the property a protocol
-          has to have for it to deserve being called a protocol.
+          research cannot itself be a black box. The schema, the
+          formulas, the rules the judge obeys and the client contract
+          are all public and MIT-licensed. The kernel ships with a
+          golden test: a real research tree from the maintainer&apos;s
+          fleet aggregates to exactly the fleet engine&apos;s score,
+          verdict, conviction and probabilities. If drawtree.capital
+          disappears, committed trees remain readable against this
+          spec.
         </p>
       </section>
 
       {/* -------------------------------------------------------- */}
-      {/* 1 · The tree schema                                       */}
+      {/* 1 · Tree schema                                           */}
       {/* -------------------------------------------------------- */}
       <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          1 · The five-layer tree
-        </h2>
-        <p className="text-sm text-muted mb-4 leading-relaxed">
-          Every Draw Tree decomposes a single investment thesis into
-          five strictly-ordered layers. Each layer answers one question
-          and produces artefacts the next layer depends on.
-        </p>
+        <h2 className="text-xl tracking-tight mb-3">1 · The tree</h2>
         <pre className="bg-paper-2 border border-line rounded p-4 text-xs leading-relaxed overflow-x-auto">
-{`Narrative   →  What does the market believe? What do you disagree with?
-H-0         →  One falsifiable sentence, with a time window.
-Branches    →  3-4 MECE branches, each bound to one of 164 frameworks.
-Leaves      →  2-4 sub-hypotheses per branch. Each has a kill condition.
-Scenarios   →  Bull / Base / Bear. Peer group + multiple → implied price.`}
+{`Consensus   →  What the market believes and what the price already assumes.
+H-0         →  One question, one question mark, ≤120 characters, naming the
+               bear outcome ("…rather than being pushed back to …").
+Branches    →  3–5 necessary conditions. Each carries an impact grade derived
+               from what happens to the valuation if it fails.
+Leaves      →  Observable questions with a six-level reading guide, structured
+               conditions on disclosed numbers, an append-only evidence ledger.
+Valuation   →  Three scenarios from two human decisions (rules R1–R12).`}
         </pre>
         <ul className="text-xs text-muted space-y-2 mt-5 leading-relaxed list-disc list-inside">
           <li>
-            <strong className="text-ink">Narrative</strong> requires a
-            written statement of the current market consensus plus the
-            specific claim you are contesting. A tree whose thesis
-            agrees with consensus has no edge and is flagged before
-            commit.
+            <strong className="text-ink">Branch weight is derived, not authored.</strong>{" "}
+            Each branch declares a falsification consequence (where the
+            scenario goes if the branch fails). The gate computes how far
+            that moves the implied value as a share of price and assigns
+            the grade: ≥25% 致命 (2.5), 10–25% 重創 (1.6), 4–10% 明顯受損
+            (0.9), 1–4% 輕微 (0.4), &lt;1% 邊緣 (0.15). A branch whose weight
+            differs from its derived grade fails validation. At least one
+            branch must be fatal, and one must carry numerator delivery.
           </li>
           <li>
-            <strong className="text-ink">H-0</strong> must be a single
-            sentence of the form &ldquo;within X months, Y will (or
-            will not) happen&rdquo;. Generic sentiment statements are
-            rejected at validation.
+            <strong className="text-ink">Conditions are structured.</strong>{" "}
+            <code>{`{cid, kind, metric, operator, threshold, unit, window, due, status}`}</code>{" "}
+            with <code>kind</code> ∈ falsification / verification / deadline
+            and <code>status</code> ∈ open / breached / met / superseded /
+            expired_unfulfilled. Every condition is assessed at every
+            judgement (gates E1–E7: no moved goalposts, no unaddressed
+            breach, no unassessed condition, no unsupported downgrade).
           </li>
           <li>
-            <strong className="text-ink">Branches</strong> are
-            MECE-checked and each binds to one of 164 indexed strategy
-            frameworks (Porter Five Forces, Wide Moat, Unit Economics,
-            Demand-Side Economics, …). The chosen framework drives what
-            the Phase 2 research job actually searches for.
+            <strong className="text-ink">Evidence is a ledger.</strong>{" "}
+            Rows are appended, never edited: <code>eid, date, text,
+            source_name, url, tier, impact, bears_on</code>. Tier is
+            filing &gt; earnings &gt; trade_press &gt; news &gt; synthetic;
+            impact is supports / challenges / neutral.
           </li>
           <li>
-            <strong className="text-ink">Leaves</strong> are the unit
-            of falsifiability. Every leaf must declare its kill
-            condition — typed as <em>observable</em>,{" "}
-            <em>directional</em>, or <em>mechanism</em>. Leaves without
-            a kill condition fail validation and the tree cannot be
-            committed.
-          </li>
-          <li>
-            <strong className="text-ink">Scenarios</strong> use Peer
-            Group Valuation: each scenario binds a peer set + a
-            multiple method (EV/Sales, EV/EBITDA, P/E, P/FCF, SOTP).
-            The server computes implied per-share value and its
-            distance from the current price.{" "}
-            <strong>DCF, reverse DCF, and DDM are not supported by
-            design</strong>{" "}
-            — they encode too much noise as precision.
+            <strong className="text-ink">Reader fields</strong> sit next to
+            the machine fields: a one-line <code>short_question</code>, a
+            six-level <code>reading_guide</code>, and the reader block
+            「現時判斷 → 甚麼會推翻這個假設 → 推翻之後」.
           </li>
         </ul>
       </section>
 
       {/* -------------------------------------------------------- */}
-      {/* 2 · Verdict vocabulary                                   */}
+      {/* 2 · Verdicts and aggregation                              */}
       {/* -------------------------------------------------------- */}
       <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          2 · The six-state verdict vocabulary
-        </h2>
-        <p className="text-sm text-muted mb-4 leading-relaxed">
-          Every leaf, every branch, and the root H-0 carries a verdict
-          on a six-state monotone scale. Aggregation rolls leaves up to
-          branches (Fibonacci-default weights, overridable) and
-          branches up to H-0 conviction in [0, 1].
-        </p>
+        <h2 className="text-xl tracking-tight mb-3">2 · Verdicts and aggregation</h2>
         <div className="border border-line rounded overflow-hidden">
           <table className="w-full text-xs">
             <thead className="bg-paper-2 text-left">
@@ -269,438 +205,258 @@ Scenarios   →  Bull / Base / Bear. Peer group + multiple → implied price.`}
               </tr>
             </thead>
             <tbody className="text-muted">
-              <tr className="border-t border-line">
-                <td className="px-3 py-2 font-mono text-ink">validated</td>
-                <td className="px-3 py-2 font-mono">1.00</td>
-                <td className="px-3 py-2">Evidence strongly confirms the hypothesis.</td>
-              </tr>
-              <tr className="border-t border-line">
-                <td className="px-3 py-2 font-mono text-ink">trending_positive</td>
-                <td className="px-3 py-2 font-mono">0.75</td>
-                <td className="px-3 py-2">Directional support; threshold not yet hit.</td>
-              </tr>
-              <tr className="border-t border-line">
-                <td className="px-3 py-2 font-mono text-ink">inconclusive</td>
-                <td className="px-3 py-2 font-mono">0.50</td>
-                <td className="px-3 py-2">Data insufficient or ambiguous. Default for un-researched leaves.</td>
-              </tr>
-              <tr className="border-t border-line">
-                <td className="px-3 py-2 font-mono text-ink">trending_negative</td>
-                <td className="px-3 py-2 font-mono">0.25</td>
-                <td className="px-3 py-2">Directional pressure against the hypothesis.</td>
-              </tr>
-              <tr className="border-t border-line">
-                <td className="px-3 py-2 font-mono text-ink">approaching_falsification</td>
-                <td className="px-3 py-2 font-mono">0.10</td>
-                <td className="px-3 py-2">One more disconfirming data point flips it.</td>
-              </tr>
-              <tr className="border-t border-line">
-                <td className="px-3 py-2 font-mono text-ink">falsified</td>
-                <td className="px-3 py-2 font-mono">0.00</td>
-                <td className="px-3 py-2">Hypothesis disproven.</td>
-              </tr>
+              {[
+                ["✅ Validated", "+2", "The reading guide's top level has been observed."],
+                ["🟢 Trending positive", "+1", "Direction supports the leaf; threshold not yet reached."],
+                ["⚪ Inconclusive", "0", "No decisive reading yet. The default for a new leaf."],
+                ["🟡 Trending negative", "−1", "Direction works against the leaf."],
+                ["🟠 Approaching falsification", "−2", "A listed condition is close; one more reading flips it."],
+                ["✗ Falsified", "−3", "A listed condition was met, on a primary or wire source."],
+              ].map(([v, s, mng]) => (
+                <tr key={v} className="border-t border-line">
+                  <td className="px-3 py-2 text-ink">{v}</td>
+                  <td className="px-3 py-2 font-mono">{s}</td>
+                  <td className="px-3 py-2">{mng}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-muted mt-4 leading-relaxed">
-          The expected return on a tree is conviction-weighted:{" "}
-          <code className="text-[11px]">Σ (scenario_prob × scenario_value_distance)</code>
-          . The Phase 2 research job and the weekly cron both update
-          verdicts using the same vocabulary, so a tree&apos;s history
-          is always read on one consistent scale.
-        </p>
-      </section>
-
-      {/* -------------------------------------------------------- */}
-      {/* 3 · Phase 1 — step-by-step framework design              */}
-      {/* -------------------------------------------------------- */}
-      <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          3 · Phase 1 — framework design (free)
-        </h2>
-        <p className="text-sm text-muted mb-4 leading-relaxed">
-          Phase 1 is the protocol&apos;s most-enforced rule: the AI
-          client must never chain stages. After each tool call it
-          presents the result back to the user in plain language and
-          asks whether to refine or proceed. <code>save_*</code> is
-          only called after explicit user confirmation.
-        </p>
-        <pre className="bg-paper-2 border border-line rounded p-4 text-[11px] leading-relaxed overflow-x-auto">
-{`start_draft(ticker)
-  → confirm company name
-
-frame_narrative(draft_id)
-  → present market-narrative archaeology
-  → user confirms
-  → save_narrative
-
-frame_h0(draft_id)
-  → present H-0 sentence + framework_from / framework_to + window
-  → user confirms
-  → save_h0
-
-design_branches(draft_id, target_branch_count=4)
-  → read 164-framework one-liner index + top-15 scored shortlist
-  → fetch_framework_details(names=[...6-12 candidates...])  (free, batched)
-  → walk user through 3-4 MECE branches
-  → user confirms
-  → save_branches
-
-design_leaves(branch_id='A')        ┐
-  → render diagnostic axes          │  repeat per branch
-  → user confirms                   │  until is_last_branch
-  → propose 2-4 leaves + kill cond. │
-  → save_leaves({A: [...]})         ┘
-
-design_scenarios → save_scenarios
-preview_tree    → confirm_framework`}
+        <pre className="bg-paper-2 border border-line rounded p-4 text-xs leading-relaxed overflow-x-auto mt-4">
+{`branch score    = weighted mean of leaf scores (leaf weights, default equal)
+branch verdict  = thresholds ≥1.5 / ≥0.5 / >−0.5 / >−1.5; kill at ≤−2.0,
+                  or when any leaf in necessity_leaves is Falsified
+branch conviction = σ( logit(0.40) + 1.5 · score )
+H-0 score       = impact-weighted mean of branch scores; kill at ≤−2.0
+H-0 conviction  = σ( logit(0.40) + Σ w · score/3 ), positive terms halved,
+                  clamped to [0.005, 0.95]
+p_bull = h0/2, p_bear = −h0/3 (verdict-based); price-implied probabilities
+                  from the three targets and the current price (Max-Base)`}
         </pre>
-        <p className="text-xs text-muted mt-4 leading-relaxed">
-          The protocol exposes a separate{" "}
-          <code>fetch_framework_details</code> tool because the
-          framework-shortlisting step requires the AI to read multiple
-          candidates&apos; full pitfalls + diagnostic axes before
-          recommending one. Loading those is free and does not advance
-          the draft stage.
+        <p className="text-xs text-muted mt-3 leading-relaxed">
+          Both probability readings are model outputs on the author&apos;s
+          targets, reported side by side. Neither is a calibrated
+          probability, and the protocol never produces a weighted target
+          price.
         </p>
       </section>
 
       {/* -------------------------------------------------------- */}
-      {/* 4 · Phase 2 — batched deep research                      */}
+      {/* 3 · Valuation                                             */}
       {/* -------------------------------------------------------- */}
       <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          4 · Phase 2 — deep research (one button, one bundle)
-        </h2>
-        <p className="text-sm text-muted mb-4 leading-relaxed">
-          Once <code>confirm_framework</code> is called, the server
-          holds a single flat <strong>50-credit Phase 2 bundle</strong>{" "}
-          and kicks off a deep-research job covering every narrative
-          pillar and every leaf&apos;s falsification metric in one
-          shot.
-        </p>
-        <pre className="bg-paper-2 border border-line rounded p-4 text-[11px] leading-relaxed overflow-x-auto">
-{`confirm_framework(draft_id)
-  → 50 cr held as a single bundle (auto-confirms in 24h)
-
-research_phase2(draft_id, model='pro')
-  → server starts a long-running research job
-  → returns immediately with poll_after_seconds
-
-research_phase2_status(draft_id)   (poll every 30-60s)
-  → status: queued | running | ingested | failed
-  → typical wall time: 60-180s
-
-compute_scenarios(draft_id)
-  → server fetches live peer prices
-  → computes Bull / Base / Bear implied per-share values
-
-commit_draft_tree(draft_id, visibility='private')
-  → publishes the tree, locks a version_hash
-
-summarize_tree(tree_id)
-  → renders the final 10-section report
-  → asks once: "Set up weekly monitoring?"`}
+        <h2 className="text-xl tracking-tight mb-3">3 · Valuation — two decisions, rules R1–R12</h2>
+        <pre className="bg-paper-2 border border-line rounded p-4 text-xs leading-relaxed overflow-x-auto">
+{`numerator(scenario) = street consensus × ratio(scenario)   ratio(base) = 1
+multiple(scenario)  = median of the scenario's peer tier, today
+target(scenario)    = numerator × multiple           (per share)
+                    = (numerator × multiple + net cash) ÷ diluted shares   (EV rulers)`}
         </pre>
-        <p className="text-xs text-muted mt-4 leading-relaxed">
-          Splitting the work this way is deliberate. The{" "}
-          <strong>design</strong> of a research framework wants to be
-          slow, interactive, and reversible. The{" "}
-          <strong>execution</strong> of that framework — the
-          fact-gathering — wants to be fast, parallel, and batched.
-          Mixing the two produces the worst of both worlds.
+        <p className="text-sm text-muted mt-4 leading-relaxed">
+          The author decides only two things: the bear and bull ratios to
+          consensus (each with a one-sentence economic reason, an anchor,
+          sourced inputs, assumptions and a cross-check), and the bear and
+          bull peer-tier identities. The base tier is the tier whose band
+          contains the company&apos;s own multiple. Everything else is derived
+          by the server, and the human approves the report before anything
+          is committed.
         </p>
-      </section>
-
-      {/* -------------------------------------------------------- */}
-      {/* 5 · Weekly monitoring                                    */}
-      {/* -------------------------------------------------------- */}
-      <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          5 · Weekly monitoring
-        </h2>
-        <p className="text-sm text-muted mb-4 leading-relaxed">
-          After a tree is committed the user is asked once whether to
-          enable weekly monitoring. The server then provisions a
-          per-ticker GitHub Actions cron that runs every Saturday
-          morning HKT and:
-        </p>
-        <ul className="text-xs text-muted space-y-2 leading-relaxed list-disc list-inside">
-          <li>
-            Pulls the past week&apos;s news from public sources,
-            deduplicated and quality-filtered by source.
-          </li>
-          <li>
-            Attributes each article to specific branches and leaves it
-            affects.
-          </li>
-          <li>
-            Runs a two-pass hybrid verdict engine (evidence ingestion,
-            then verdict re-evaluation), updating every leaf on the
-            six-state vocabulary above.
-          </li>
-          <li>
-            Writes the new evidence and verdict changes back as a new
-            version of the same tree — history is append-only.
-          </li>
-          <li>
-            Posts a structured update to the user&apos;s configured
-            Slack channel (or email).
-          </li>
+        <ul className="text-xs text-muted space-y-1.5 mt-4 leading-relaxed list-disc list-inside">
+          <li><strong className="text-ink">R5</strong> hard gate: bear &lt; price &lt; bull. The only fix is the economics — never a shifted multiple.</li>
+          <li><strong className="text-ink">R10 / AX7</strong> own multiple outside every band must be declared (base impure).</li>
+          <li><strong className="text-ink">R12</strong> forward-table multiples are re-based to the stated close when the table&apos;s implied price is more than 2% away.</li>
+          <li><strong className="text-ink">n-rules</strong> one peer needs an idiosyncrasy note; two use the midpoint with ratio ≤1.30; three or more use the median with max/min ≤2.5.</li>
+          <li><strong className="text-ink">Banned</strong> DCF, reverse DCF, DDM, inverted scenarios, weighted target prices — rejected everywhere.</li>
         </ul>
-        <p className="text-xs text-muted mt-4 leading-relaxed">
-          Monitoring is prepaid at <strong>5 credits per week per
-          tree</strong>. <code>pause_monitoring</code>,{" "}
-          <code>resume_monitoring</code>, and{" "}
-          <code>cancel_monitoring</code> are free; cancelling refunds
-          unused weeks pro-rata.
+        <p className="text-xs text-muted mt-3 leading-relaxed">
+          Tools: <code>evaluate_valuation</code> (free, stateless),{" "}
+          <code>report_two_decisions</code> (stores and returns the report),{" "}
+          <code>approve_decisions</code> (records the reply verbatim and
+          builds the schema-2.1 document the commit attaches).
         </p>
       </section>
 
       {/* -------------------------------------------------------- */}
-      {/* 6 · Tool surface                                         */}
+      {/* 4 · Procedure                                             */}
       {/* -------------------------------------------------------- */}
       <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          6 · The MCP tool surface
-        </h2>
-        <p className="text-sm text-muted mb-4 leading-relaxed">
-          The MCP server exposes 38 tools, grouped by phase. Free
-          tools cover validation, reading, listing, and balance.
-          Charged tools are explicitly labelled and use a
-          hold-then-confirm credit model that auto-confirms in 24
-          hours (refundable at <Link href="/account" className="underline-offset-4 hover:underline text-ink">/account</Link>).
+        <h2 className="text-xl tracking-tight mb-3">4 · Procedure — four steps, two human gates</h2>
+        <pre className="bg-paper-2 border border-line rounded p-4 text-[11px] leading-relaxed overflow-x-auto">
+{`1 RESEARCH   background brief (400–700 characters) · pricing pack · narrative
+             start_draft → frame_narrative → save_narrative
+2 BUILD      five questions → scenario ladder → H-0 → necessary-condition path
+             frame_h0 → save_h0 → design_branches → fetch_framework_details
+             → save_branches → design_leaves / save_leaves (per branch)
+             preview_tree  ■ FRAMEWORK GATE — the human reads the framework
+             confirm_framework
+3 GATE       evaluate_valuation until no errors
+             report_two_decisions  ■ TWO-DECISION GATE — the human replies
+             approve_decisions(reply verbatim)
+             research_phase2 → research_phase2_status → compute_scenarios
+             commit_draft_tree  (validated, aggregated, signed, versioned)
+4 REPORT     summarize_tree → reader report (§1 industry → company → why now;
+             §2 what it sells / how it charges / where the money goes / last
+             quarter; §3 consensus; §4 price chart with narrative bands)
+             setup_monitoring?`}
+        </pre>
+        <p className="text-xs text-muted mt-4 leading-relaxed">
+          The client contract (the skill) enforces the gates: nothing
+          downstream of <code>preview_tree</code> or{" "}
+          <code>report_two_decisions</code> is called until the human
+          answers in the conversation. Download it from{" "}
+          <a href="/api/skill/skill.md" className="text-ink underline-offset-4 hover:underline">
+            /api/skill/skill.md
+          </a>
+          .
         </p>
+      </section>
 
+      {/* -------------------------------------------------------- */}
+      {/* 5 · Weekly monitor                                        */}
+      {/* -------------------------------------------------------- */}
+      <section className="mb-12">
+        <h2 className="text-xl tracking-tight mb-3">5 · Weekly monitor — what the judge may do</h2>
+        <pre className="bg-paper-2 border border-line rounded p-4 text-[11px] leading-relaxed overflow-x-auto">
+{`sweep      deterministic: overdue deadlines expire, crossed thresholds breach and latch
+search     broad + targeted; every result tagged source_tier
+           (primary · wire · trade · aggregator · other)
+judge      sees only the evidence pool, the standing verdict, the conditions
+gate       a proposed change is kept only if it
+             1  cites a URL that was in this week's pool
+             1b–1c  cites verifiable rows with known ids
+             1d  is not an upgrade on all-challenging (or downgrade on all-supporting) rows
+             2  quotes a real listed condition when entering the falsification zone
+             3  is not a price-only argument
+             +  Falsified needs a primary or wire source
+           otherwise the standing verdict is kept and the proposal is recorded
+latch      met / breached / expired conditions cannot be assessed back to not_met;
+           only "superseded" with a reason releases them
+freshness  first_public graded 首發 / 補課 / 未能確認
+write      append-only: ledger rows, verdict_history, conditions; a signed version`}
+        </pre>
+        <p className="text-xs text-muted mt-4 leading-relaxed">
+          A daily scheduler calls the API; weekly subscriptions run on
+          Saturday 09:00 HKT. Rejected proposals and condition events are
+          shown to the owner, in the email and on the tree page — nothing
+          disappears silently.
+        </p>
+      </section>
+
+      {/* -------------------------------------------------------- */}
+      {/* 6 · Point in time                                         */}
+      {/* -------------------------------------------------------- */}
+      <section className="mb-12">
+        <h2 className="text-xl tracking-tight mb-3">6 · Point in time — signed, append-only versions</h2>
+        <p className="text-sm text-muted leading-relaxed">
+          Every write — commit, edit, weekly judgement, price refresh,
+          narrative refresh — appends a <code>tree_versions</code> row:
+          the full payload, <code>sha256(canonical_json)</code>, an
+          Ed25519 signature by the operator key, and provenance
+          (source, actor, previous version, protocol version,{" "}
+          <code>key_kind</code>). Nothing is rewritten in place.
+        </p>
+        <pre className="bg-paper-2 border border-line rounded p-4 text-[11px] leading-relaxed overflow-x-auto mt-4">
+{`GET /v1/view/trees/by-id/{id}/versions                 history, newest first
+GET /v1/view/trees/by-id/{id}/versions/{version_id}    one version, with payload
+GET /v1/view/trees/by-id/{id}/state_at?at=ISO          the tree as held at or before a cutoff
+GET /v1/view/trees/by-id/{id}/versions/diff?from_version=&to_version=
+GET /v1/server_pubkey                                  public key and key_kind`}
+        </pre>
+        <p className="text-xs text-muted mt-3 leading-relaxed">
+          <code>state_at</code> is the only read a backtest or a dispute may
+          use. A version signed by a development key is marked{" "}
+          <code>key_kind: dev</code> and is not an attestation.
+        </p>
+      </section>
+
+      {/* -------------------------------------------------------- */}
+      {/* 7 · Tool surface                                          */}
+      {/* -------------------------------------------------------- */}
+      <section className="mb-12">
+        <h2 className="text-xl tracking-tight mb-3">7 · The MCP tool surface</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border border-line rounded p-4">
-            <div className="text-xs uppercase tracking-wider text-emerald-700 mb-2">
-              Free
-            </div>
+            <div className="text-xs uppercase tracking-wider text-emerald-700 mb-2">Kernel · valuation gate · point in time (free)</div>
             <ul className="text-[11px] font-mono text-muted space-y-1 leading-relaxed">
-              <li>start_draft</li>
-              <li>frame_narrative / save_narrative</li>
-              <li>frame_h0 / save_h0</li>
-              <li>design_branches / save_branches</li>
-              <li>fetch_framework_details</li>
-              <li>design_leaves / save_leaves</li>
-              <li>design_scenarios / save_scenarios</li>
-              <li>preview_tree</li>
               <li>validate_tree / aggregate_tree</li>
-              <li>commit_tree / commit_draft_tree</li>
-              <li>read_tree / read_tree_by_ticker</li>
-              <li>read_branch / read_history</li>
-              <li>summarize_tree / read_committed_report</li>
-              <li>my_workspace / list_my_drafts / list_my_trees</li>
+              <li>migrate_tree / sweep_conditions</li>
+              <li>evaluate_valuation</li>
+              <li>report_two_decisions / approve_decisions</li>
+              <li>read_valuation_draft</li>
+              <li>read_tree_versions / read_tree_version</li>
+              <li>read_tree_state_at / diff_tree_versions</li>
+              <li>commit_tree / read_tree / read_history</li>
               <li>suggest_framework</li>
-              <li>set_report_language / set_phase2_notification</li>
-              <li>propose_edit / apply_edit / abandon_draft</li>
-              <li>pause_monitoring / resume_monitoring / cancel_monitoring</li>
-              <li>balance / credit_balance</li>
-              <li>refund_charge</li>
-              <li>search / fetch (ChatGPT-compat)</li>
             </ul>
           </div>
           <div className="border border-line rounded p-4">
-            <div className="text-xs uppercase tracking-wider text-amber-700 mb-2">
-              Charged (hold-then-confirm)
-            </div>
+            <div className="text-xs uppercase tracking-wider text-muted mb-2">Draft flow · view mode (hosted server)</div>
             <ul className="text-[11px] font-mono text-muted space-y-1 leading-relaxed">
-              <li>confirm_framework <span className="text-[10px]">(50 cr bundle)</span></li>
-              <li>research_phase2 <span className="text-[10px]">(bundled)</span></li>
-              <li>research_phase2_status <span className="text-[10px]">(free polling)</span></li>
-              <li>compute_scenarios <span className="text-[10px]">(bundled)</span></li>
-              <li>enrich_narrative_data <span className="text-[10px]">(bundled)</span></li>
-              <li>enrich_leaf_data <span className="text-[10px]">(bundled)</span></li>
-              <li>phase2_run_all <span className="text-[10px]">(bundled)</span></li>
-              <li>enrich_branches <span className="text-[10px]">(per branch)</span></li>
-              <li>register_narrative</li>
-              <li>suggest_falsification</li>
-              <li>derive_scenario_values</li>
-              <li>auto_evidence <span className="text-[10px]">(2 cr)</span></li>
-              <li>append_evidence</li>
-              <li>external_search <span className="text-[10px]">(1 cr)</span></li>
-              <li>subscribe_alerts <span className="text-[10px]">(per alert)</span></li>
-              <li>setup_monitoring <span className="text-[10px]">(5 cr/week)</span></li>
-              <li>confirm_charge <span className="text-[10px]">(early confirm)</span></li>
+              <li>start_draft → frame_* / save_* → preview_tree</li>
+              <li>confirm_framework <span className="text-[10px]">(Phase 2 bundle)</span></li>
+              <li>research_phase2 / research_phase2_status</li>
+              <li>compute_scenarios / commit_draft_tree</li>
+              <li>summarize_tree / read_committed_report</li>
+              <li>my_workspace / list_my_drafts / list_my_trees</li>
+              <li>read_branch / propose_edit / apply_edit</li>
+              <li>setup_monitoring / pause / resume / cancel</li>
+              <li>search / fetch <span className="text-[10px]">(ChatGPT-compat)</span></li>
             </ul>
           </div>
         </div>
         <p className="text-xs text-muted mt-4 leading-relaxed">
-          Polling tools like <code>research_phase2_status</code> never
-          charge. Read-only tools never charge. The AI client is
-          instructed by the skill never to mention credit costs to the
-          user — they can check their own balance at{" "}
+          The stdio server ships the kernel, the valuation gate, publish
+          and point-in-time reads (20 tools). The hosted server adds the
+          draft flow and view mode. Read-only and kernel tools never
+          charge; the client never mentions credits — the balance is at{" "}
           <Link href="/account" className="underline-offset-4 hover:underline text-ink">/account</Link>.
         </p>
       </section>
 
       {/* -------------------------------------------------------- */}
-      {/* 7 · Architecture                                         */}
+      {/* 8 · Architecture                                          */}
       {/* -------------------------------------------------------- */}
       <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          7 · Architecture
-        </h2>
-        <p className="text-sm text-muted mb-4 leading-relaxed">
-          Draw Tree runs as four independent services. The MCP server
-          owns the protocol surface; the API owns all state; the
-          dashboard renders the same data the AI sees; the cron runs
-          background research without going through MCP transport.
-        </p>
+        <h2 className="text-xl tracking-tight mb-3">8 · Architecture</h2>
         <pre className="bg-paper-2 border border-line rounded p-4 text-[10.5px] leading-relaxed overflow-x-auto">
-{`┌──────────────┐    MCP (Streamable HTTP)    ┌──────────────────┐
-│  AI client   │ ──────────────────────────▶ │  drawtree-mcp    │
-│ ChatGPT      │ ◀────────────────────────── │  (FastMCP, OAuth │
-│ Claude.ai    │                              │   2.1 + PKCE,    │
-│ Perplexity   │                              │   dt_ Bearer)    │
-│ Claude Code  │                              └────────┬─────────┘
-│ Codex CLI    │                                       │ REST
-│ Claude Desk. │                                       ▼
-└──────────────┘                              ┌──────────────────┐
-                                              │  drawtree-api    │
-                                              │  (FastAPI + Neon │
-                                              │   Postgres)      │
-                                              └────────┬─────────┘
-                                ┌──────────────────────┼──────────────────────┐
-                                ▼                      ▼                      ▼
-                       ┌────────────────┐    ┌──────────────────┐    ┌──────────────┐
-                       │ drawtree-      │    │ GitHub Actions   │    │ deep-research│
-                       │ dashboard      │    │ weekly cron      │    │ + verdict    │
-                       │ (Next.js,      │    │ (one per tree)   │    │ judge        │
-                       │  drawtree.     │    └──────────────────┘    └──────────────┘
-                       │  capital)      │
-                       └────────────────┘`}
+{`┌──────────────┐  MCP (stdio / Streamable HTTP)  ┌──────────────────────────┐
+│  AI client   │ ───────────────────────────────▶ │  drawtree-mcp (Render)   │
+│ ChatGPT      │                                  │  kernel v0.3 · OAuth     │
+│ Claude.ai    │                                  └────────────┬─────────────┘
+│ Claude Code  │                                               │ REST, Bearer dt_…
+│ Codex · …    │                                               ▼
+└──────────────┘                                  ┌──────────────────────────┐
+                                                  │  drawtree-api (Render)   │
+                                                  │  core/ = same kernel     │
+                                                  │  valuation R1–R12        │
+                                                  │  weekly judge + gate     │
+                                                  │  Ed25519 · tree_versions │
+                                                  │  Postgres (Neon)         │
+                                                  └──────┬─────────────┬─────┘
+                                                         ▼             ▼
+                                        ┌──────────────────┐  ┌──────────────────┐
+                                        │ drawtree-dashboard│  │ daily scheduler  │
+                                        │ (Vercel) reads    │  │ → admin_run_cron │
+                                        │ the same API      │  │ (Saturday judge) │
+                                        └──────────────────┘  └──────────────────┘`}
         </pre>
-        <h3 className="text-sm font-medium mt-6 mb-2">
-          Why split MCP from API
-        </h3>
-        <ul className="text-xs text-muted space-y-2 leading-relaxed list-disc list-inside">
-          <li>
-            <code>drawtree-mcp</code> only handles protocol: validation,
-            aggregation, tool routing, OAuth discovery. It is stateless
-            and trivially redeployable.
-          </li>
-          <li>
-            <code>drawtree-api</code> owns all state: trees, drafts,
-            charges, subscriptions, monitoring jobs. Replacing the MCP
-            transport does not touch user data.
-          </li>
-          <li>
-            The dashboard hits the same API. What you see at{" "}
-            <code>drawtree.capital</code> and what the AI sees through
-            MCP are always one source of truth.
-          </li>
-          <li>
-            The weekly cron talks to the API directly, not through MCP
-            — background jobs should not be constrained by the
-            transport limits of a synchronous tool call.
-          </li>
-        </ul>
-
-        <h3 className="text-sm font-medium mt-6 mb-2">
-          Why MCP and not function calling
-        </h3>
-        <ul className="text-xs text-muted space-y-2 leading-relaxed list-disc list-inside">
-          <li>
-            <strong className="text-ink">Discovery is standard.</strong>{" "}
-            Clients call <code>tools/list</code> and render schemas on
-            their own. Adding a new tool requires no client change.
-          </li>
-          <li>
-            <strong className="text-ink">Streamable HTTP transport.</strong>{" "}
-            Long-running jobs (Phase 2 research, 60–180 s) can stream
-            intermediate progress over SSE.
-          </li>
-          <li>
-            <strong className="text-ink">Two auth paths, one server.</strong>{" "}
-            CLI clients send <code>Authorization: Bearer dt_…</code>;
-            web clients use OAuth 2.1 with PKCE and Dynamic Client
-            Registration. Both hit the same tools.
-          </li>
+        <ul className="text-xs text-muted space-y-2 leading-relaxed list-disc list-inside mt-4">
+          <li>The kernel is one codebase imported by both the MCP server and the API; a tree validates and aggregates identically on either side.</li>
+          <li>The API owns all state and signing. Replacing the transport does not touch user data.</li>
+          <li>The dashboard renders the same records the AI reads — including versions, the two-decision report and the judge&apos;s rejected proposals.</li>
         </ul>
       </section>
 
       {/* -------------------------------------------------------- */}
-      {/* 8 · Skill — the client contract                          */}
+      {/* 9 · Out of scope                                          */}
       {/* -------------------------------------------------------- */}
       <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          8 · The skill — protocol contract on the client side
-        </h2>
-        <p className="text-sm text-muted leading-relaxed">
-          The server defines what tools exist. The shipped{" "}
-          <code>SKILL.md</code> defines{" "}
-          <strong>how AI clients must use them</strong>: the entry
-          gate, the Phase 1 stage ordering, batched-vs-sequential
-          rules, error fallback order, and wording rules (never mention
-          credits, preserve the user&apos;s terminology, add an open
-          question when sources conflict).
-        </p>
-        <p className="text-sm text-muted mt-3 leading-relaxed">
-          The same skill ships in three wrappers — Anthropic Skills
-          format (Claude Code, Claude Desktop, Claude.ai), AGENTS.md
-          (Codex CLI), and a system-prompt body (ChatGPT, Perplexity).
-          Behaviour is identical across clients because the protocol
-          enforces it.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs">
-          <a
-            href="/api/skill/skill.md"
-            className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
-          >
-            Download SKILL.md
-          </a>
-          <a
-            href="/api/skill/agents.md"
-            className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
-          >
-            Download AGENTS.md
-          </a>
-          <a
-            href="/api/skill/skill.zip"
-            className="px-3 py-1.5 border border-line rounded hover:bg-line/40"
-          >
-            Download skill.zip
-          </a>
-        </div>
-      </section>
-
-      {/* -------------------------------------------------------- */}
-      {/* 9 · Versioning                                            */}
-      {/* -------------------------------------------------------- */}
-      <section className="mb-12">
-        <h2 className="text-xl tracking-tight mb-3">
-          9 · Versioning and what is not in the protocol
-        </h2>
-        <p className="text-sm text-muted leading-relaxed">
-          Every commit produces a content-addressed{" "}
-          <code>version_hash</code>. Editing any leaf forks a new
-          version; nothing is ever overwritten. A six-month-old tree
-          and today&apos;s tree on the same ticker are directly
-          comparable.
-        </p>
-        <p className="text-sm text-muted mt-3 leading-relaxed">
-          Some things are intentionally out of scope:
-        </p>
-        <ul className="text-xs text-muted space-y-2 leading-relaxed list-disc list-inside mt-2">
-          <li>
-            <strong className="text-ink">DCF, reverse DCF, DDM,
-            inverted scenarios.</strong>{" "}
-            These methods encode noise as precision and conflict with
-            the falsifiability requirement.
-          </li>
-          <li>
-            <strong className="text-ink">Public directory of trees.</strong>{" "}
-            All committed trees are private by default. There is no
-            search across users or tickers.
-          </li>
-          <li>
-            <strong className="text-ink">Model lock-in.</strong>{" "}
-            The protocol does not prescribe which LLM the client uses.
-            Any model that can read <code>SKILL.md</code> and follow
-            its hard rules produces compliant trees.
-          </li>
+        <h2 className="text-xl tracking-tight mb-3">9 · What is not in the protocol</h2>
+        <ul className="text-xs text-muted space-y-2 leading-relaxed list-disc list-inside">
+          <li><strong className="text-ink">Recommendations.</strong> The protocol produces structured evidence, verdicts and scenario arithmetic. It never produces a position, a target price or advice.</li>
+          <li><strong className="text-ink">DCF, reverse DCF, DDM, inverted scenarios.</strong> Rejected by the validator and the valuation gate.</li>
+          <li><strong className="text-ink">A public directory.</strong> Trees are private by default; a public tree is the owner&apos;s explicit choice.</li>
+          <li><strong className="text-ink">Model lock-in.</strong> Any model that can follow the skill&apos;s hard rules produces compliant trees; the kernel contains no model calls.</li>
         </ul>
       </section>
 
@@ -709,23 +465,11 @@ summarize_tree(tree_id)
       {/* -------------------------------------------------------- */}
       <footer className="mt-16 pt-6 border-t border-line text-xs text-muted">
         <div className="flex flex-wrap justify-between gap-3">
-          <span>Protocol v0.3 · last revised 2026-06</span>
+          <span>Protocol v0.3 · last revised 2026-10-05</span>
           <div className="flex gap-4">
-            <Link href="/" className="underline-offset-4 hover:underline">
-              Home
-            </Link>
-            <Link href="/start" className="underline-offset-4 hover:underline">
-              Setup guide
-            </Link>
-            <Link href="/account" className="underline-offset-4 hover:underline">
-              My account
-            </Link>
-            <a
-              href="mailto:founder@peter-ai.app"
-              className="underline-offset-4 hover:underline"
-            >
-              Contact
-            </a>
+            <Link href="/" className="underline-offset-4 hover:underline">Home</Link>
+            <Link href="/start" className="underline-offset-4 hover:underline">Setup guide</Link>
+            <Link href="/account" className="underline-offset-4 hover:underline">My account</Link>
           </div>
         </div>
       </footer>
