@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import FrameworkView, { FrameworkData } from "../../_components/FrameworkView";
 import ErrorBoundary from "../../_components/ErrorBoundary";
+import {
+  MonitorStatusCard,
+  SignedVersionBadge,
+  ValuationDecisionsCard,
+  VersionsPanel,
+} from "../../_components/ProtocolPanels";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 
 const API_URL = "https://drawtree-api.onrender.com";
@@ -17,6 +23,7 @@ type TreeResponse = {
   committed_at: string | null;
   payload: any;
   verdict: any;
+  version?: any; // head of the append-only tree_versions (protocol v0.3)
 };
 
 // Map the parsed Section X scenario rows (an array of
@@ -255,6 +262,8 @@ export default function TreePage({
   const { m, locale } = useI18n();
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [data, setData] = useState<FrameworkData | null>(null);
+  const [rawPayload, setRawPayload] = useState<any>(null);
+  const [headVersion, setHeadVersion] = useState<any>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [cadence, setCadence] = useState<string>("none");
   const [ccEmails, setCcEmails] = useState<string[]>([]);
@@ -282,6 +291,8 @@ export default function TreePage({
       if (!r.ok) throw new Error(`${r.status}`);
       const t: TreeResponse = await r.json();
       setDraftId(t.draft_id);
+      setRawPayload(t.payload || null);
+      setHeadVersion(t.version || null);
 
       // If a source draft exists, fetch it so the tree viewer can use the
       // draft's enriched evidence (which is mutable) instead of the
@@ -369,6 +380,7 @@ export default function TreePage({
             <p className="text-[11px] text-muted mt-2 font-mono">
               tree_id: {tree_id}
             </p>
+            <SignedVersionBadge version={headVersion} />
           </header>
           {draftId && apiKey && (
             <MonitorCadenceCard
@@ -379,6 +391,10 @@ export default function TreePage({
               initialCcEmails={ccEmails}
               onSaved={loadAll}
             />
+          )}
+          <MonitorStatusCard payload={rawPayload} />
+          {draftId && apiKey && (
+            <ValuationDecisionsCard apiUrl={API_URL} apiKey={apiKey} draftId={draftId} />
           )}
           {draftId && (
             <div className="mb-5 text-xs text-muted bg-paper border border-line rounded px-3 py-2">
@@ -399,6 +415,7 @@ export default function TreePage({
               onChanged={() => loadAll()}
             />
           </ErrorBoundary>
+          {apiKey && <VersionsPanel apiUrl={API_URL} apiKey={apiKey} treeId={tree_id} />}
         </>
       )}
     </main>
